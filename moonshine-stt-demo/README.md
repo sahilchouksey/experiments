@@ -1,49 +1,40 @@
 # Moonshine STT Demo
 
-Real-time Speech-to-Text demo using Moonshine Streaming model with WebSocket audio streaming.
+Real-time on-device speech-to-text in the browser using the [Moonshine](https://github.com/usefulsensors/moonshine) streaming model. No cloud, no API key — runs entirely on your machine.
+
+![screenshot](./screenshot.png)
+
+## Features
+
+- Real-time transcription via AudioWorklet → WebSocket → Moonshine SDK
+- Noise / hallucination filter (drops filler words, silence artifacts)
+- Rule-based post-processing (auto-capitalize, append period)
+- Auto-copy to clipboard after each finalized line
+- Keyboard shortcuts: `R` toggle recording, `Esc` stop
 
 ## Requirements
 
 - Python 3.10+
-- GPU with CUDA support (recommended for faster inference)
-- Microphone access
+- CUDA GPU recommended
+- Microphone access in browser
 
 ## Setup
 
-1. Activate the virtual environment:
-```bash
-cd moonshine-stt-demo
-source venv/bin/activate
-```
-
-2. Install dependencies (already done):
 ```bash
 pip install -r requirements.txt
 ```
 
-## Run the Demo
+## Run
 
 ```bash
 python main.py
 ```
 
-The server will start on http://localhost:8000
+Open [http://localhost:8000](http://localhost:8000) in your browser.
 
-## Usage
+## How it works
 
-1. Open http://localhost:8000 in your browser
-2. Wait for the model to load (status will show "✓ Model loaded and ready")
-3. Click "Start Recording" and speak
-4. See real-time transcription as you speak
-5. Click "Stop Recording" when done
-
-## Model
-
-Uses `UsefulSensors/moonshine-streaming-medium` - the best Moonshine streaming model for real-time transcription.
-
-## How it Works
-
-1. **Frontend**: Browser captures microphone audio using MediaRecorder API
-2. **Streaming**: Audio is converted to PCM 16-bit and sent via WebSocket
-3. **Backend**: Receives audio chunks and processes with Moonshine model
-4. **Real-time**: Transcriptions are streamed back and displayed immediately
+1. Browser captures mic audio via `AudioWorklet`, downsamples to 16kHz float32 PCM
+2. Raw PCM chunks sent over WebSocket as binary frames
+3. FastAPI backend feeds audio to `moonshine-voice` SDK (`Transcriber`)
+4. Partial and finalized transcripts streamed back and rendered in real time
