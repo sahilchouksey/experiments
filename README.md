@@ -6,4 +6,4 @@ A collection of small experiments and side projects.
 
 | Folder | Description |
 |--------|-------------|
-| [`moonshine-stt-demo`](./moonshine-stt-demo) | Real-time browser-based speech-to-text using the Moonshine streaming model. Runs fully on-device via a FastAPI backend with an AudioWorklet frontend. Includes noise/hallucination filtering and rule-based punctuation. |
+| [`real-time-stt-demo`](./real-time-stt-demo) | Dual-engine real-time STT in the browser — Moonshine (medium-streaming, incremental) and Whisper (large-v3-turbo, VAD-chunked) running side by side on the same mic input. Fully on-device, no cloud. FastAPI + AudioWorklet frontend. |
