@@ -3,8 +3,8 @@
 Real-time multi-engine Text-to-Speech demo. Audio streams to the browser sentence-by-sentence — first chunk plays before the full text is synthesized.
 
 ## Demo
+https://github.com/user-attachments/assets/de3b513f-2933-4e5c-9cc5-df6ea02fad5c
 
-https://github.com/user-attachments/assets/1641f23d-952c-46d6-af7a-a7aa6cf3d722
 
 ## Engines
 
