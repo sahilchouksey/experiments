@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Real-time STT</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #000;
+    min-height: 100vh;
+    color: #fff;
+    padding: 40px 24px;
+}
+.container { max-width: 1200px; margin: 0 auto; }
+
+/* ── header ── */
+.header { margin-bottom: 32px; }
+h1 { font-size: 1rem; font-weight: 500; letter-spacing: 0.02em; color: #fff; margin-bottom: 4px; }
+.subtitle { font-size: 0.78rem; color: #444; letter-spacing: 0.01em; }
+
+/* ── controls bar ── */
+.controls {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 16px; flex-wrap: wrap;
+}
+button {
+    padding: 6px 14px;
+    font-size: 0.78rem; font-weight: 500;
+    border: 1px solid #333; border-radius: 0;
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s, border-color 0.1s;
+    letter-spacing: 0.02em;
+    background: #000; color: #555;
+}
+button:hover:not(:disabled) { background: #fff; color: #000; border-color: #fff; }
+button:disabled { cursor: not-allowed; opacity: 0.3; }
+.btn-start.active { background: #fff; color: #000; border-color: #fff; }
+
+/* ── toggles ── */
+.toggles-row {
+    display: flex; gap: 20px; margin-bottom: 24px; flex-wrap: wrap;
+    align-items: center;
+}
+.pill-toggle {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 0.72rem; color: #444; letter-spacing: 0.02em;
+    cursor: pointer; user-select: none;
+}
+.pill-toggle input[type="checkbox"] { display: none; }
+.toggle-track {
+    width: 28px; height: 14px;
+    background: #222; border: 1px solid #333; border-radius: 7px;
+    position: relative; transition: background 0.15s, border-color 0.15s; flex-shrink: 0;
+}
+.toggle-track::after {
+    content: ''; position: absolute; top: 2px; left: 2px;
+    width: 8px; height: 8px; background: #555; border-radius: 50%;
+    transition: transform 0.15s, background 0.15s;
+}
+.pill-toggle input:checked + .toggle-track { background: #fff; border-color: #fff; }
+.pill-toggle input:checked + .toggle-track::after { transform: translateX(14px); background: #000; }
+.toggle-label { color: #444; }
+.pill-toggle input:checked ~ .toggle-label { color: #888; }
+
+/* ── status bar ── */
+.status-bar {
+    display: flex; align-items: center; gap: 20px;
+    margin-bottom: 28px; font-size: 0.73rem; color: #444;
+    letter-spacing: 0.01em;
+}
+.engine-status { display: flex; align-items: center; gap: 6px; }
+.engine-label { color: #2a2a2a; font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.pulse-dot { width: 5px; height: 5px; background: #222; flex-shrink: 0; }
+.pulse-dot.active { background: #fff; animation: pulse 1.2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.2} }
+.engine-text { color: #444; }
+.engine-text.listening { color: #888; }
+.engine-text.loading   { color: #666; }
+.engine-text.error     { color: #833; }
+
+/* ── two-column panels ── */
+.panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: #111;
+    border: 1px solid #111;
+}
+.panel {
+    background: #000;
+    padding: 24px;
+    min-height: 420px;
+    display: flex; flex-direction: column;
+}
+.panel-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 20px; padding-bottom: 16px;
+    border-bottom: 1px solid #1a1a1a;
+}
+.panel-title {
+    font-size: 0.72rem; font-weight: 500; letter-spacing: 0.08em;
+    text-transform: uppercase; color: #333;
+}
+.panel-meta {
+    font-size: 0.65rem; color: #2a2a2a; margin-top: 3px;
+    letter-spacing: 0.02em;
+}
+.panel-actions { display: flex; gap: 6px; align-items: center; }
+.btn-copy-panel {
+    padding: 3px 8px; font-size: 0.68rem;
+    border: 1px solid #1a1a1a; color: #333; background: #000;
+}
+.btn-copy-panel:hover { background: #fff; color: #000; border-color: #fff; }
+.btn-clear-panel {
+    padding: 3px 8px; font-size: 0.68rem;
+    border: 1px solid #1a1a1a; color: #333; background: #000;
+}
+.btn-clear-panel:hover { background: #fff; color: #000; border-color: #fff; }
+
+.transcript-text {
+    flex: 1;
+    font-size: 1.05rem; line-height: 1.9; color: #fff;
+    white-space: pre-wrap; word-break: break-word; font-weight: 300;
+    overflow-y: auto; max-height: 500px;
+}
+.partial-span   { color: #333; }
+.confirmed-span { color: #fff; }
+.empty-hint     { color: #1e1e1e; font-size: 0.88rem; font-weight: 400; }
+
+/* ── footer ── */
+.footer { margin-top: 32px; font-size: 0.68rem; color: #222; letter-spacing: 0.02em; }
+kbd { font-size:0.62rem; color:#2a2a2a; border:1px solid #1e1e1e; padding:1px 4px; }
+
+/* ── responsive ── */
+@media (max-width: 640px) {
+    .panels { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="header">
+    <h1>Real-time STT</h1>
+    <p class="subtitle">dual engine &middot; side-by-side</p>
+</div>
+
+<div class="controls">
+    <button id="startBtn" class="btn-start">Record</button>
+    <button id="stopBtn" disabled>Stop</button>
+</div>
+
+<div class="toggles-row">
+    <label class="pill-toggle">
+        <input type="checkbox" id="filterNoiseToggle" checked>
+        <span class="toggle-track"></span>
+        <span class="toggle-label" id="filterNoiseLabel">filter noise (on)</span>
+    </label>
+    <label class="pill-toggle">
+        <input type="checkbox" id="autoCopyToggle">
+        <span class="toggle-track"></span>
+        <span class="toggle-label" id="autoCopyLabel">auto-copy</span>
+    </label>
+</div>
+
+<div class="status-bar">
+    <div class="engine-status">
+        <div class="pulse-dot" id="dotMoonshine"></div>
+        <span class="engine-label">Moonshine</span>
+        <span class="engine-text" id="statusMoonshine">connecting...</span>
+    </div>
+    <div class="engine-status">
+        <div class="pulse-dot" id="dotWhisper"></div>
+        <span class="engine-label">Whisper</span>
+        <span class="engine-text" id="statusWhisper">connecting...</span>
+    </div>
+</div>
+
+<div class="panels">
+    <!-- Moonshine panel -->
+    <div class="panel" id="panelMoonshine">
+        <div class="panel-header">
+            <div>
+                <div class="panel-title">Moonshine</div>
+                <div class="panel-meta">medium streaming &middot; incremental</div>
+            </div>
+            <div class="panel-actions">
+                <button class="btn-copy-panel" onclick="copyPanel('moonshine')">Copy</button>
+                <button class="btn-clear-panel" onclick="clearPanel('moonshine')">Clear</button>
+            </div>
+        </div>
+        <div class="transcript-text" id="transcriptMoonshine">
+            <span class="empty-hint">Waiting for input...</span>
+        </div>
+    </div>
+
+    <!-- Whisper panel -->
+    <div class="panel" id="panelWhisper">
+        <div class="panel-header">
+            <div>
+                <div class="panel-title">Whisper</div>
+                <div class="panel-meta">large-v3-turbo &middot; int8 &middot; VAD-chunked</div>
+            </div>
+            <div class="panel-actions">
+                <button class="btn-copy-panel" onclick="copyPanel('whisper')">Copy</button>
+                <button class="btn-clear-panel" onclick="clearPanel('whisper')">Clear</button>
+            </div>
+        </div>
+        <div class="transcript-text" id="transcriptWhisper">
+            <span class="empty-hint">Waiting for input...</span>
+        </div>
+    </div>
+</div>
+
+<p class="footer">
+    Moonshine medium streaming + Whisper large-v3-turbo &mdash;
+    <kbd>R</kbd> toggle recording &nbsp;<kbd>Esc</kbd> stop
+</p>
+
+</div>
+<script>
+// ── per-engine state ──────────────────────────────────────────────────────────
+const engines = {
+    moonshine: {
+        ws: null,
+        confirmed: [],
+        partialLineId: null,
+        partialText: '',
+        transcriptEl: null,
+        dotEl: null,
+        statusEl: null,
+    },
+    whisper: {
+        ws: null,
+        confirmed: [],
+        partialLineId: null,
+        partialText: '',
+        transcriptEl: null,
+        dotEl: null,
+        statusEl: null,
+    },
+};
+
+// ── shared audio state ────────────────────────────────────────────────────────
+let audioContext = null;
+let mediaStream  = null;
+let workletNode  = null;
+let sourceNode   = null;
+let isRecording  = false;
+
+const startBtn          = document.getElementById('startBtn');
+const stopBtn           = document.getElementById('stopBtn');
+const filterNoiseToggle = document.getElementById('filterNoiseToggle');
+const filterNoiseLabel  = document.getElementById('filterNoiseLabel');
+const autoCopyToggle    = document.getElementById('autoCopyToggle');
+const autoCopyLabel     = document.getElementById('autoCopyLabel');
+
+function initEngineRefs() {
+    engines.moonshine.transcriptEl = document.getElementById('transcriptMoonshine');
+    engines.moonshine.dotEl        = document.getElementById('dotMoonshine');
+    engines.moonshine.statusEl     = document.getElementById('statusMoonshine');
+    engines.whisper.transcriptEl   = document.getElementById('transcriptWhisper');
+    engines.whisper.dotEl          = document.getElementById('dotWhisper');
+    engines.whisper.statusEl       = document.getElementById('statusWhisper');
+}
+
+// ── engine-specific rendering ─────────────────────────────────────────────────
+ function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Detect "new line" command in any form:
+// strips all spaces, punctuation, symbols → checks for "newline" (case-insensitive)
+function isNewlineCommand(text) {
+    const stripped = text.replace(/[\s\p{P}\p{S}]/gu, '').toLowerCase();
+    return stripped === 'newline';
+}
+
+// Split text on "new line" commands embedded mid-sentence.
+// Returns array of segments — empty string means "insert paragraph break here".
+// e.g. "hello new line how are you" → ["hello", "", "how are you"]
+function splitOnNewlineCommands(text) {
+    // Regex: word boundary, optional non-word chars, "new" then optional spaces/punct/symbols,
+    // "line", optional non-word chars, word boundary — case insensitive
+    const pattern = /(?<![a-z])new[\s\p{P}\p{S}]*line(?![a-z])/giu;
+    const parts = text.split(pattern);
+    const result = [];
+    parts.forEach((part, i) => {
+        const trimmed = part.trim();
+        if (trimmed) result.push(trimmed);
+        if (i < parts.length - 1) result.push(''); // newline marker between parts
+    });
+    return result;
+}
+
+function renderEngine(name) {
+    const e = engines[name];
+    const hasConfirmed = e.confirmed.some(l => l.trim() !== '');
+    if (!hasConfirmed && !e.partialText) {
+        e.transcriptEl.innerHTML = '<span class="empty-hint">Your speech will appear here...</span>';
+        return;
+    }
+    // Build confirmed HTML: lines joined by double line breaks
+    let confirmedHtml = e.confirmed.map(escHtml).join('<br><br>');
+    let html = '';
+    if (confirmedHtml) html += '<span class="confirmed-span">' + confirmedHtml + '</span>';
+    if (e.partialText) {
+        if (confirmedHtml) html += ' ';
+        html += '<span class="partial-span">' + escHtml(e.partialText) + '</span>';
+    }
+    e.transcriptEl.innerHTML = html;
+    e.transcriptEl.scrollTop = e.transcriptEl.scrollHeight;
+}
+
+function handlePartial(name, lineId, text) {
+    const e = engines[name];
+    e.partialLineId = lineId;
+    e.partialText   = text;
+    renderEngine(name);
+}
+
+function handleTranscription(name, lineId, text, autoCopy, filtered) {
+    const e = engines[name];
+    if (e.partialLineId === lineId) { e.partialLineId = null; e.partialText = ''; }
+    if (filtered || !text) { renderEngine(name); return; }
+
+    // Split on any embedded "new line" commands
+    const segments = splitOnNewlineCommands(text);
+
+    if (e.confirmed.length === 0) e.confirmed.push('');
+
+    for (const seg of segments) {
+        if (seg === '') {
+            // newline marker — start a new paragraph
+            e.confirmed.push('');
+        } else {
+            const last = e.confirmed[e.confirmed.length - 1];
+            e.confirmed[e.confirmed.length - 1] = last ? last + ' ' + seg : seg;
+        }
+    }
+
+    renderEngine(name);
+    if (autoCopy) navigator.clipboard.writeText(e.confirmed.join('\n')).catch(() => {});
+}
+
+function clearPanel(name) {
+    const e = engines[name];
+    e.confirmed = []; e.partialLineId = null; e.partialText = '';
+    renderEngine(name);
+}
+
+function copyPanel(name) {
+    const e = engines[name];
+    const confirmed = e.confirmed.join('\n');
+    const text = (confirmed + (e.partialText ? ' ' + e.partialText : '')).trim();
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+}
+
+// ── WebSocket management ──────────────────────────────────────────────────────
+function setEngineStatus(name, cls, text) {
+    const e = engines[name];
+    e.statusEl.className = 'engine-text ' + cls;
+    e.statusEl.textContent = text;
+    if (cls === 'listening') e.dotEl.classList.add('active');
+    else                     e.dotEl.classList.remove('active');
+}
+
+function connectEngine(name, path) {
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(protocol + '//' + location.host + path);
+    ws.binaryType = 'arraybuffer';
+    engines[name].ws = ws;
+
+    ws.onopen = () => {
+        ws.send(JSON.stringify({ type: 'set_filter_noise', enabled: filterNoiseToggle.checked }));
+        ws.send(JSON.stringify({ type: 'set_auto_copy',    enabled: autoCopyToggle.checked }));
+    };
+    ws.onclose = () => {
+        setEngineStatus(name, '', 'disconnected');
+        if (isRecording) stopRecording();
+    };
+    ws.onerror = (e) => { console.error(name, 'ws error', e); };
+    ws.onmessage = (ev) => {
+        const msg = JSON.parse(ev.data);
+        if (msg.type === 'ready') {
+            setEngineStatus(name, '', 'ready');
+        } else if (msg.type === 'partial') {
+            handlePartial(name, msg.line_id, msg.text);
+        } else if (msg.type === 'transcription') {
+            handleTranscription(name, msg.line_id, msg.text, msg.auto_copy, msg.filtered);
+        }
+    };
+}
+
+function sendBothEngines(data) {
+    for (const name of ['moonshine', 'whisper']) {
+        const ws = engines[name].ws;
+        if (ws && ws.readyState === WebSocket.OPEN) ws.send(data);
+    }
+}
+
+// ── toggle handlers ───────────────────────────────────────────────────────────
+filterNoiseToggle.addEventListener('change', () => {
+    const enabled = filterNoiseToggle.checked;
+    filterNoiseLabel.textContent = enabled ? 'filter noise (on)' : 'filter noise';
+    sendBothEngines(JSON.stringify({ type: 'set_filter_noise', enabled }));
+});
+
+autoCopyToggle.addEventListener('change', () => {
+    const enabled = autoCopyToggle.checked;
+    autoCopyLabel.textContent = enabled ? 'auto-copy (on)' : 'auto-copy';
+    sendBothEngines(JSON.stringify({ type: 'set_auto_copy', enabled }));
+});
+
+// ── AudioWorklet ──────────────────────────────────────────────────────────────
+const WORKLET_CODE = `
+class PcmStreamer extends AudioWorkletProcessor {
+    constructor(options) {
+        super();
+        this._targetRate = options.processorOptions.targetRate || 16000;
+        this._inputRate  = sampleRate;
+        this._ratio      = this._inputRate / this._targetRate;
+        this._buf        = [];
+        this._CHUNK      = 1600;
+    }
+    process(inputs) {
+        const ch = inputs[0][0];
+        if (!ch) return true;
+        for (let i = 0; i < ch.length; i += this._ratio)
+            this._buf.push(ch[Math.floor(i)]);
+        while (this._buf.length >= this._CHUNK) {
+            const chunk = new Float32Array(this._CHUNK);
+            for (let i = 0; i < this._CHUNK; i++) chunk[i] = this._buf[i];
+            this._buf.splice(0, this._CHUNK);
+            this.port.postMessage(chunk.buffer, [chunk.buffer]);
+        }
+        return true;
+    }
+}
+registerProcessor('pcm-streamer', PcmStreamer);
+`;
+
+async function startRecording() {
+    startBtn.disabled = true;
+    setEngineStatus('moonshine', 'loading', 'requesting mic...');
+    setEngineStatus('whisper',   'loading', 'requesting mic...');
+    try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({ audio: {
+            sampleRate: { ideal: 16000 }, channelCount: 1,
+            echoCancellation: true, noiseSuppression: true,
+        }});
+        audioContext = new AudioContext();
+        const blob = new Blob([WORKLET_CODE], { type: 'application/javascript' });
+        const url  = URL.createObjectURL(blob);
+        await audioContext.audioWorklet.addModule(url);
+        URL.revokeObjectURL(url);
+        sourceNode  = audioContext.createMediaStreamSource(mediaStream);
+        workletNode = new AudioWorkletNode(audioContext, 'pcm-streamer', {
+            processorOptions: { targetRate: 16000 }
+        });
+        workletNode.port.onmessage = (ev) => {
+            // Fan out the same audio chunk to both engines
+            const buf1 = ev.data;
+            const buf2 = buf1.slice(0);   // copy — each WS owns its own buffer
+            const moon = engines.moonshine.ws;
+            const whis = engines.whisper.ws;
+            if (moon && moon.readyState === WebSocket.OPEN) moon.send(buf1);
+            if (whis && whis.readyState === WebSocket.OPEN) whis.send(buf2);
+        };
+        sourceNode.connect(workletNode);
+        isRecording = true;
+        stopBtn.disabled = false;
+        startBtn.classList.add('active');
+        setEngineStatus('moonshine', 'listening', 'listening');
+        setEngineStatus('whisper',   'listening', 'listening');
+    } catch (err) {
+        console.error(err);
+        startBtn.disabled = false;
+        startBtn.classList.remove('active');
+        setEngineStatus('moonshine', 'error', 'mic error');
+        setEngineStatus('whisper',   'error', 'mic error');
+    }
+}
+
+function stopRecording() {
+    if (!isRecording) return;
+    isRecording = false;
+    if (workletNode) { workletNode.disconnect(); workletNode = null; }
+    if (sourceNode)  { sourceNode.disconnect();  sourceNode = null; }
+    if (audioContext) { audioContext.close(); audioContext = null; }
+    if (mediaStream)  { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+    sendBothEngines(JSON.stringify({ type: 'stop' }));
+    startBtn.disabled = false;
+    startBtn.classList.remove('active');
+    stopBtn.disabled = true;
+    setEngineStatus('moonshine', '', 'stopped');
+    setEngineStatus('whisper',   '', 'stopped');
+}
+
+startBtn.addEventListener('click', startRecording);
+stopBtn.addEventListener('click',  stopRecording);
+
+document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.key === 'r' || e.key === 'R') {
+        if (!isRecording) startRecording(); else stopRecording();
+    }
+    if (e.key === 'Escape' && isRecording) stopRecording();
+});
+
+// ── boot ──────────────────────────────────────────────────────────────────────
+initEngineRefs();
+connectEngine('moonshine', '/ws/moonshine');
+connectEngine('whisper',   '/ws/whisper');
+</script>
+</body>
+</html>
