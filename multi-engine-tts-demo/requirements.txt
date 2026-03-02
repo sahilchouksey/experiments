@@ -1,0 +1,15 @@
+fastapi==0.135.1
+uvicorn[standard]==0.41.0
+kokoro-onnx==0.5.0
+onnxruntime==1.24.2
+numpy==2.4.2
+soundfile==0.13.1
+huggingface_hub>=0.34.0,<1.0
+# Qwen3-TTS (requires CUDA; install torch separately with the right CUDA version)
+qwen-tts==0.1.1
+# torch==2.6.0+cu124  (install via pip install torch --index-url https://download.pytorch.org/whl/cu124)
+# torchaudio==2.6.0+cu124
+# Chatterbox Turbo (auto-downloads model from HuggingFace on first use)
+# Install with: pip install chatterbox-tts==0.1.6 --no-deps
+# Then: pip install resemble-perth pyloudnorm omegaconf librosa conformer safetensors s3tokenizer pykakasi diffusers --no-deps
+chatterbox-tts==0.1.6

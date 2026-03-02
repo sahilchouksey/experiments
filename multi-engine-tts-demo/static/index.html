@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TTS Demo</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: #000;
+  color: #fff;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 20px 80px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── header ── */
+.header {
+  width: 100%;
+  max-width: 680px;
+  margin-bottom: 40px;
+}
+.header-label {
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #333;
+  margin-bottom: 8px;
+}
+.header-title {
+  font-size: 1.55rem;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+/* ── tabs ── */
+.tabs {
+  width: 100%;
+  max-width: 680px;
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid #1a1a1a;
+  margin-bottom: 0;
+}
+.tab-btn {
+  padding: 10px 20px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  color: #444;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: color 0.1s, border-color 0.1s;
+  margin-bottom: -1px;
+  font-family: inherit;
+}
+.tab-btn:hover:not(.active) { color: #888; }
+.tab-btn.active {
+  color: #fff;
+  border-bottom-color: #fff;
+}
+
+/* ── panel wrapper ── */
+.panel-wrap {
+  width: 100%;
+  max-width: 680px;
+  border: 1px solid #1a1a1a;
+  border-top: none;
+  padding: 28px 28px 24px;
+}
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── textarea ── */
+textarea {
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+  background: #000;
+  border: 1px solid #1f1f1f;
+  border-radius: 0;
+  color: #e8e8e8;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  padding: 12px 14px;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.1s;
+}
+textarea:focus { border-color: #333; }
+textarea::placeholder { color: #2a2a2a; }
+
+/* ── controls row (voice/lang/speed) ── */
+.ctrl-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+.ctrl-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ctrl-label {
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #333;
+  white-space: nowrap;
+}
+
+/* ── selects ── */
+select {
+  background: #000;
+  border: 1px solid #222;
+  border-radius: 0;
+  color: #888;
+  font-size: 0.78rem;
+  font-family: inherit;
+  padding: 5px 8px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.1s, color 0.1s;
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 24px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23444'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+select:hover, select:focus { border-color: #333; color: #ccc; }
+
+/* ── range slider ── */
+.range-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+input[type=range] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100px;
+  height: 2px;
+  background: #222;
+  border-radius: 0;
+  outline: none;
+  cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 10px;
+  height: 10px;
+  background: #555;
+  border-radius: 0;
+  transition: background 0.1s;
+}
+input[type=range]:hover::-webkit-slider-thumb { background: #fff; }
+input[type=range]::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  background: #555;
+  border-radius: 0;
+  border: none;
+}
+.speed-val {
+  font-size: 0.72rem;
+  color: #444;
+  font-variant-numeric: tabular-nums;
+  min-width: 28px;
+}
+
+/* ── action buttons ── */
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+}
+.btn-speak, .btn-stop {
+  padding: 7px 18px;
+  border-radius: 0;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+  touch-action: manipulation;
+}
+.btn-speak {
+  background: #fff;
+  color: #000;
+  border: 1px solid #fff;
+}
+.btn-speak:hover:not(:disabled) { background: #ccc; border-color: #ccc; }
+.btn-speak:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.btn-stop {
+  background: #000;
+  color: #444;
+  border: 1px solid #222;
+  display: none;
+}
+.btn-stop.visible {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-stop:hover { background: #fff; color: #000; border-color: #fff; }
+
+/* ── divider ── */
+.divider {
+  border: none;
+  border-top: 1px solid #1a1a1a;
+  margin: 20px 0;
+}
+
+/* ── status bar ── */
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 20px;
+}
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #222;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+.dot.ready   { background: #333; }
+.dot.loading { background: #fff; animation: pulse 0.8s ease-in-out infinite; }
+.dot.playing { background: #fff; animation: pulse 1.2s ease-in-out infinite; }
+.dot.error   { background: #833; }
+.dot.done    { background: #333; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+.status-text {
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  color: #333;
+}
+
+/* ── chunk pills ── */
+.chunks-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 10px;
+  margin-top: 10px;
+}
+.chunk-pill {
+  height: 4px;
+  width: 24px;
+  border-radius: 0;
+  background: #1a1a1a;
+  transition: background 0.2s;
+}
+.chunk-pill.ready   { background: #2a2a2a; }
+.chunk-pill.playing { background: #fff; }
+.chunk-pill.done    { background: #444; }
+
+/* ── latency timer ── */
+.latency-row {
+  display: none;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 8px;
+  min-height: 18px;
+}
+.latency-label {
+  font-size: 0.65rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #2a2a2a;
+  white-space: nowrap;
+}
+.latency-val {
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: #2a2a2a;
+  letter-spacing: 0.02em;
+  transition: color 0.15s;
+}
+.latency-val.running { color: #555; }
+.latency-val.done    { color: #888; }
+
+/* ── waveform ── */
+.waveform-wrap {
+  margin-top: 16px;
+  border: 1px solid #1a1a1a;
+  overflow: hidden;
+  height: 52px;
+  display: none;
+  background: #000;
+}
+.waveform-wrap.visible { display: block; }
+canvas { width: 100%; height: 100%; display: block; }
+
+/* ── footer ── */
+footer {
+  margin-top: 40px;
+  font-size: 0.68rem;
+  color: #222;
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+footer kbd {
+  background: transparent;
+  border: 1px solid #1e1e1e;
+  border-radius: 0;
+  padding: 1px 5px;
+  font-size: 0.62rem;
+  color: #2a2a2a;
+  font-family: inherit;
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <p class="header-label">Text-to-Speech</p>
+  <h1 class="header-title">TTS Demo</h1>
+</div>
+
+<!-- ── tabs (injected by main.py via template) ── -->
+<div class="tabs" id="tabs">
+  <!-- ENGINE_TABS -->
+</div>
+
+<div class="panel-wrap">
+  <!-- ENGINE_PANELS -->
+</div>
+
+<footer>
+  Press <kbd>Enter</kbd> to speak &nbsp;&middot;&nbsp;
+  <kbd>Esc</kbd> to stop &nbsp;&middot;&nbsp;
+  <kbd>Shift+Enter</kbd> for newline
+</footer>
+
+<script>
+// ============================================================
+//  Tab switching
+// ============================================================
+const tabBtns   = document.querySelectorAll(".tab-btn");
+const tabPanels = document.querySelectorAll(".tab-panel");
+
+tabBtns.forEach(btn => {
+  btn.addEventListener("click", () => {
+    tabBtns.forEach(b  => b.classList.remove("active"));
+    tabPanels.forEach(p => p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("panel-" + btn.dataset.tab).classList.add("active");
+  });
+});
+
+// ============================================================
+//  Generic audio engine factory (shared by all tabs)
+// ============================================================
+function makeEngine(cfg) {
+  // cfg: { dot, statusEl, chunksEl, waveformWrap, canvas, btnSpeak, btnStop, latencyEl, latencyRow }
+  let ws = null, audioCtx = null, analyserNode = null;
+  let animFrameId = null, nextStartTime = 0;
+  let isPlaying = false, stopRequested = false, chunkCount = 0;
+  let activeSources = 0;
+  let wsFinished = false;
+  const ctx2d = cfg.canvas.getContext("2d");
+
+  // ── latency timer ──
+  let _latencyStart = null, _latencyInterval = null;
+
+  function startTimer() {
+    if (!cfg.latencyEl) return;
+    _latencyStart = performance.now();
+    cfg.latencyEl.className = "latency-val running";
+    cfg.latencyEl.textContent = "0.00s";
+    if (cfg.latencyRow) cfg.latencyRow.style.display = "flex";
+    _latencyInterval = setInterval(() => {
+      if (_latencyStart === null) return;
+      const s = (performance.now() - _latencyStart) / 1000;
+      cfg.latencyEl.textContent = s.toFixed(2) + "s";
+    }, 50);
+  }
+
+  function stopTimer() {
+    if (_latencyInterval) { clearInterval(_latencyInterval); _latencyInterval = null; }
+    if (!cfg.latencyEl || _latencyStart === null) return;
+    const s = (performance.now() - _latencyStart) / 1000;
+    cfg.latencyEl.textContent = s.toFixed(2) + "s";
+    cfg.latencyEl.className = "latency-val done";
+    _latencyStart = null;
+  }
+
+  function resetTimer() {
+    if (_latencyInterval) { clearInterval(_latencyInterval); _latencyInterval = null; }
+    _latencyStart = null;
+    if (!cfg.latencyEl) return;
+    cfg.latencyEl.textContent = "";
+    cfg.latencyEl.className = "latency-val";
+    if (cfg.latencyRow) cfg.latencyRow.style.display = "none";
+  }
+
+  function setStatus(state, text) {
+    cfg.dot.className = "dot " + state;
+    cfg.statusEl.textContent = text;
+  }
+
+  function addPill() {
+    const pill = document.createElement("div");
+    pill.className = "chunk-pill ready";
+    pill.id = cfg.canvas.id + "-pill-" + chunkCount;
+    cfg.chunksEl.appendChild(pill);
+    return chunkCount++;
+  }
+
+  function setPill(idx, state) {
+    const p = document.getElementById(cfg.canvas.id + "-pill-" + idx);
+    if (p) p.className = "chunk-pill " + state;
+  }
+
+  function ensureAudioCtx() {
+    if (!audioCtx || audioCtx.state === "closed") {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+      analyserNode = audioCtx.createAnalyser();
+      analyserNode.fftSize = 256;
+      analyserNode.connect(audioCtx.destination);
+      nextStartTime = audioCtx.currentTime;
+    }
+    if (audioCtx.state === "suspended") audioCtx.resume();
+  }
+
+  function startViz() {
+    cfg.waveformWrap.classList.add("visible");
+    cfg.canvas.width  = cfg.canvas.offsetWidth  * devicePixelRatio;
+    cfg.canvas.height = cfg.canvas.offsetHeight * devicePixelRatio;
+    function draw() {
+      if (!analyserNode) return;
+      animFrameId = requestAnimationFrame(draw);
+      const W = cfg.canvas.width, H = cfg.canvas.height;
+      const buf = new Uint8Array(analyserNode.frequencyBinCount);
+      analyserNode.getByteTimeDomainData(buf);
+      ctx2d.clearRect(0, 0, W, H);
+      ctx2d.strokeStyle = "#fff";
+      ctx2d.lineWidth = 1.5 * devicePixelRatio;
+      ctx2d.beginPath();
+      const sw = W / buf.length;
+      let x = 0;
+      for (let i = 0; i < buf.length; i++) {
+        const y = (buf[i] / 128) * H / 2;
+        i === 0 ? ctx2d.moveTo(x, y) : ctx2d.lineTo(x, y);
+        x += sw;
+      }
+      ctx2d.lineTo(W, H / 2);
+      ctx2d.stroke();
+    }
+    draw();
+  }
+
+  function stopViz() {
+    if (animFrameId) cancelAnimationFrame(animFrameId);
+    cfg.waveformWrap.classList.remove("visible");
+  }
+
+  async function scheduleChunk(wavBytes, pillIdx) {
+    if (stopRequested) return;
+    ensureAudioCtx();
+    let audioBuffer;
+    try { audioBuffer = await audioCtx.decodeAudioData(wavBytes.slice(0)); }
+    catch (e) { console.warn("Decode error:", e); return; }
+    if (stopRequested) return;
+    const src = audioCtx.createBufferSource();
+    src.buffer = audioBuffer;
+    src.connect(analyserNode);
+    const when = Math.max(nextStartTime, audioCtx.currentTime + 0.01);
+    src.start(when);
+    nextStartTime = when + audioBuffer.duration;
+    activeSources++;
+    setPill(pillIdx, "playing");
+    src.onended = () => {
+      if (stopRequested) return;
+      setPill(pillIdx, "done");
+      activeSources--;
+      if (activeSources === 0 && wsFinished) {
+        isPlaying = false;
+        stopViz();
+        setStatus("done", "Done");
+      }
+    };
+    if (!isPlaying) { isPlaying = true; setStatus("playing", "Playing…"); startViz(); }
+  }
+
+  function stopPlayback() {
+    stopRequested = true;
+    if (audioCtx) { try { audioCtx.close(); } catch(_){} audioCtx = null; }
+    isPlaying = false;
+    activeSources = 0;
+    wsFinished = false;
+    stopViz();
+  }
+
+  function finishUp() {
+    wsFinished = true;
+    cfg.btnSpeak.disabled = false;
+    cfg.btnStop.classList.remove("visible");
+    if (activeSources === 0) {
+      isPlaying = false;
+      stopViz();
+      setStatus("done", "Done");
+    }
+  }
+
+  cfg.btnStop.addEventListener("click", () => {
+    stopRequested = true;
+    if (ws) { try { ws.close(); } catch(_){} ws = null; }
+    stopPlayback();
+    stopTimer();
+    setStatus("ready", "Stopped");
+    cfg.btnSpeak.disabled = false;
+    cfg.btnStop.classList.remove("visible");
+  });
+
+  return {
+    setStatus, addPill, setPill, scheduleChunk,
+    stopPlayback, finishUp,
+    startTimer, stopTimer, resetTimer,
+    get stopRequested() { return stopRequested; },
+    get ws()            { return ws; },
+    set ws(v)           { ws = v; },
+    resetState() {
+      stopPlayback();
+      stopRequested = false;
+      chunkCount    = 0;
+      activeSources = 0;
+      wsFinished    = false;
+      cfg.chunksEl.innerHTML = "";
+      resetTimer();
+      ensureAudioCtx();
+      cfg.btnSpeak.disabled = true;
+      cfg.btnStop.classList.add("visible");
+      setStatus("loading", "Connecting…");
+    },
+  };
+}
+
+// ============================================================
+//  Per-engine speak function factory
+// ============================================================
+function makeSpeakFn(tabId, wsPath, engine) {
+  return function speak() {
+    const textEl = document.getElementById(tabId + "-text");
+    const text   = textEl ? textEl.value.trim() : "";
+    if (!text) return;
+
+    engine.resetState();
+    const protocol = location.protocol === "https:" ? "wss" : "ws";
+    const ws = new WebSocket(`${protocol}://${location.host}${wsPath}`);
+    engine.ws = ws;
+    ws.binaryType = "arraybuffer";
+
+    ws.onopen = () => {
+      engine.setStatus("loading", "Synthesizing…");
+      engine.startTimer();
+      const buildFn = window["buildPayload_" + tabId];
+      ws.send(JSON.stringify(buildFn ? buildFn(text) : { text }));
+    };
+    let _firstChunk = true;
+    ws.onmessage = async (evt) => {
+      if (engine.stopRequested) { ws.close(); return; }
+      if (typeof evt.data === "string") {
+        const msg = JSON.parse(evt.data);
+        if (msg.type === "done")  engine.finishUp();
+        if (msg.type === "error") { engine.stopTimer(); engine.setStatus("error", "Error: " + msg.message); engine.finishUp(); }
+        return;
+      }
+      if (_firstChunk) { engine.stopTimer(); _firstChunk = false; }
+      const idx = engine.addPill();
+      engine.setPill(idx, "ready");
+      await engine.scheduleChunk(evt.data, idx);
+    };
+    ws.onerror = () => { engine.stopTimer(); engine.setStatus("error", "WebSocket error"); engine.finishUp(); };
+    ws.onclose = () => { if (!engine.stopRequested) engine.finishUp(); };
+  };
+}
+
+// ENGINE_EXTRA_JS_INLINE
+
+// ============================================================
+//  Boot — wire up each engine tab
+// ============================================================
+(function boot() {
+  // ENGINE_REGISTRY is injected by main.py as a JS array of
+  // { tabId, wsPath } objects matching the Python engine list.
+  const registry = ENGINE_REGISTRY;
+
+  const engines = {};
+
+  registry.forEach(({ tabId, wsPath }) => {
+    const eng = makeEngine({
+      dot:          document.getElementById(tabId + "-dot"),
+      statusEl:     document.getElementById(tabId + "-status"),
+      chunksEl:     document.getElementById(tabId + "-chunks"),
+      waveformWrap: document.getElementById(tabId + "-waveform-wrap"),
+      canvas:       document.getElementById(tabId + "-canvas"),
+      btnSpeak:     document.getElementById(tabId + "-btn-speak"),
+      btnStop:      document.getElementById(tabId + "-btn-stop"),
+      latencyEl:    document.getElementById(tabId + "-latency"),
+      latencyRow:   document.getElementById(tabId + "-latency-row"),
+    });
+    engines[tabId] = eng;
+
+    const speakFn = makeSpeakFn(tabId, wsPath, eng);
+
+    document.getElementById(tabId + "-btn-speak").addEventListener("click", speakFn);
+
+    const textEl = document.getElementById(tabId + "-text");
+    if (textEl) {
+      textEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); speakFn(); }
+        if (e.key === "Escape") document.getElementById(tabId + "-btn-stop").click();
+      });
+    }
+
+    // Per-engine custom init (voice population, speed display, etc.)
+    const initFn = window["engineInit_" + tabId];
+    if (initFn) initFn();
+  });
+
+  // Global Esc (when focus is NOT in a textarea)
+  document.addEventListener("keydown", (e) => {
+    if (e.target.tagName === "TEXTAREA") return;
+    if (e.key === "Escape") {
+      registry.forEach(({ tabId }) => {
+        const btn = document.getElementById(tabId + "-btn-stop");
+        if (btn) btn.click();
+      });
+    }
+  });
+})();
+</script>
+</body>
+</html>
