@@ -27,15 +27,27 @@ Both engines receive the **same PCM audio** simultaneously via WebSocket fan-out
 
 ## Requirements
 
-- Python 3.10+
+- Python 3.10+ (tested with Python 3.13)
 - CUDA GPU recommended (Whisper large-v3-turbo is slow on CPU)
 - Microphone access in browser
+
+Check your Python version before install:
+
+```bash
+python --version
+```
+
+Expected output: `Python 3.10` or newer.
 
 ## Setup
 
 ```bash
 pip install -r requirements.txt
 ```
+
+The project is tested against `moonshine_voice>=0.0.49`, where `Transcriber`
+requires an explicit `model_path`. The app resolves and downloads the proper
+Moonshine model path automatically at runtime.
 
 On first run, Whisper large-v3-turbo (~1.6 GB) will auto-download from HuggingFace into your local cache. Moonshine medium-streaming model is also downloaded automatically by the `moonshine-voice` package.
 

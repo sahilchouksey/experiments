@@ -100,6 +100,8 @@ class WhisperEngine(STTEngine):
                             await websocket.send_json(msg)
                     except queue.Empty:
                         pass
+                    except Exception:
+                        break
                     await asyncio.sleep(0.04)
 
             drain_task = asyncio.create_task(drain_queue())
@@ -179,7 +181,7 @@ class WhisperEngine(STTEngine):
             def process_audio_chunk(raw: bytes) -> None:
                 nonlocal silence_count, in_speech, last_interim
 
-                samples = np.frombuffer(raw, dtype=np.float32)
+                samples = np.frombuffer(raw, dtype=np.float32).copy()
                 tensor = torch.from_numpy(samples)
 
                 # Pad to a multiple of _VAD_FRAME
@@ -229,6 +231,8 @@ class WhisperEngine(STTEngine):
                 await websocket.send_json({"type": "ready"})
                 while True:
                     message = await websocket.receive()
+                    if message.get("type") == "websocket.disconnect":
+                        break
                     if "bytes" in message and message["bytes"]:
                         await asyncio.to_thread(process_audio_chunk, message["bytes"])
                     elif "text" in message and message["text"]:
@@ -243,6 +247,14 @@ class WhisperEngine(STTEngine):
                             auto_copy_enabled = bool(data.get("enabled", False))
             except WebSocketDisconnect:
                 print("[whisper] client disconnected")
+            except RuntimeError as e:
+                if "disconnect" in str(e).lower():
+                    print("[whisper] client disconnected")
+                else:
+                    print(f"[whisper] error: {e}")
+                    import traceback
+
+                    traceback.print_exc()
             except Exception as e:
                 print(f"[whisper] error: {e}")
                 import traceback

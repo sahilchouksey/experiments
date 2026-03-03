@@ -13,7 +13,7 @@ import queue
 import numpy as np
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
-from moonshine_voice import Transcriber, TranscriptEventListener
+from moonshine_voice import Transcriber, TranscriptEventListener, get_model_for_language
 from moonshine_voice.transcriber import LineTextChanged, LineCompleted, LineStarted
 from moonshine_voice.moonshine_api import ModelArch
 
@@ -34,6 +34,7 @@ class MoonshineEngine(STTEngine):
             filter_noise_enabled = True
             auto_copy_enabled = False
             msg_queue: queue.Queue = queue.Queue()
+            transcriber = None
 
             class WsListener(TranscriptEventListener):
                 def on_line_started(self, event: LineStarted):
@@ -80,12 +81,6 @@ class MoonshineEngine(STTEngine):
                     )
 
             listener = WsListener()
-            transcriber = Transcriber(
-                model_arch=MOONSHINE_MODEL_ARCH,
-            )
-            transcriber.add_listener(listener)
-            transcriber.start()
-            print("[moonshine] transcriber started")
 
             async def drain_queue():
                 while True:
@@ -97,12 +92,30 @@ class MoonshineEngine(STTEngine):
                         pass
                     await asyncio.sleep(0.05)
 
-            drain_task = asyncio.create_task(drain_queue())
+            drain_task = None
 
             try:
+                model_path, resolved_arch = await asyncio.to_thread(
+                    get_model_for_language,
+                    wanted_language="en",
+                    wanted_model_arch=MOONSHINE_MODEL_ARCH,
+                )
+                transcriber = Transcriber(
+                    model_path=str(model_path),
+                    model_arch=resolved_arch,
+                )
+                transcriber.add_listener(listener)
+                transcriber.start()
+                print(
+                    f"[moonshine] transcriber started ({resolved_arch.name} @ {model_path})"
+                )
+
+                drain_task = asyncio.create_task(drain_queue())
                 await websocket.send_json({"type": "ready"})
                 while True:
                     message = await websocket.receive()
+                    if message.get("type") == "websocket.disconnect":
+                        break
                     if "bytes" in message and message["bytes"]:
                         raw = message["bytes"]
                         audio = np.frombuffer(raw, dtype=np.float32)
@@ -122,16 +135,29 @@ class MoonshineEngine(STTEngine):
                             auto_copy_enabled = bool(data.get("enabled", False))
             except WebSocketDisconnect:
                 print("[moonshine] client disconnected")
+            except RuntimeError as e:
+                if "disconnect" in str(e).lower():
+                    print("[moonshine] client disconnected")
+                else:
+                    print(f"[moonshine] error: {e}")
+                    import traceback
+
+                    traceback.print_exc()
             except Exception as e:
                 print(f"[moonshine] error: {e}")
                 import traceback
 
                 traceback.print_exc()
             finally:
-                drain_task.cancel()
-                try:
-                    transcriber.stop()
-                except Exception:
-                    pass
-                transcriber.close()
+                if drain_task is not None:
+                    drain_task.cancel()
+                if transcriber is not None:
+                    try:
+                        transcriber.stop()
+                    except Exception:
+                        pass
+                    try:
+                        transcriber.close()
+                    except Exception:
+                        pass
                 print("[moonshine] transcriber cleaned up")
