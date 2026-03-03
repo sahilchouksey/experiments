@@ -10,6 +10,7 @@ interference. Self-registers into the engine REGISTRY.
 import asyncio
 import copy
 import json
+import os
 import queue
 import threading
 import time
@@ -31,14 +32,33 @@ def get_whisper():
     if _whisper_model is None:
         with _whisper_lock:
             if _whisper_model is None:
-                print("[whisper] loading faster-whisper large-v3-turbo int8 ...")
                 from faster_whisper import WhisperModel
 
-                _whisper_model = WhisperModel(
-                    "large-v3-turbo",
-                    device="cuda",
-                    compute_type="int8",
+                preferred_device = os.getenv("WHISPER_DEVICE", "cuda")
+                preferred_compute_type = os.getenv("WHISPER_COMPUTE_TYPE", "int8")
+                print(
+                    f"[whisper] loading faster-whisper large-v3-turbo {preferred_compute_type} on {preferred_device} ..."
                 )
+                try:
+                    _whisper_model = WhisperModel(
+                        "large-v3-turbo",
+                        device=preferred_device,
+                        compute_type=preferred_compute_type,
+                    )
+                except Exception as e:
+                    if preferred_device == "cuda":
+                        cpu_compute_type = os.getenv("WHISPER_CPU_COMPUTE_TYPE", "int8")
+                        print(
+                            "[whisper] CUDA unavailable for ctranslate2, falling back to CPU "
+                            f"({cpu_compute_type}). Error: {e}"
+                        )
+                        _whisper_model = WhisperModel(
+                            "large-v3-turbo",
+                            device="cpu",
+                            compute_type=cpu_compute_type,
+                        )
+                    else:
+                        raise
                 print("[whisper] model loaded")
     return _whisper_model
 

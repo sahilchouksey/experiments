@@ -57,6 +57,12 @@ On first run, Whisper large-v3-turbo (~1.6 GB) will auto-download from HuggingFa
 python main.py
 ```
 
+If you see `ctranslate2 was not compiled with CUDA support`, run on CPU by setting:
+
+```bash
+WHISPER_DEVICE=cpu python main.py
+```
+
 Open [http://localhost:8000](http://localhost:8000) in your browser.
 
 ## Project structure
