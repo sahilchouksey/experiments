@@ -1,0 +1,1362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM Router Workflow</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #000;
+  --panel: #000;
+  --line: #1a1a1a;
+  --line-soft: #232323;
+  --text: #fff;
+  --muted: #444;
+  --muted-2: #2a2a2a;
+  --active: #fff;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 44px 20px 72px;
+}
+
+.shell {
+  width: 100%;
+  max-width: 1020px;
+  margin: 0 auto;
+}
+
+.header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.header-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.header-title {
+  font-size: 1.45rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.sync-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: 2px;
+}
+
+.sync-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  user-select: none;
+}
+
+.sync-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid var(--line-soft);
+  background: #040404;
+  padding: 3px 8px;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.sync-toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+.sync-track {
+  width: 38px;
+  height: 18px;
+  border: 1px solid var(--line-soft);
+  background: #0f0f0f;
+  display: block;
+  position: relative;
+  border-radius: 999px;
+  transition: background 180ms ease, border-color 180ms ease;
+}
+
+.sync-track::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border: 1px solid #2d2d2d;
+  background: #1b1b1b;
+  border-radius: 50%;
+  transform: translateY(-50%);
+  transition: transform 180ms ease, background 180ms ease, border-color 180ms ease;
+}
+
+.sync-toggle input:checked + .sync-track {
+  background: #fff;
+  border-color: #fff;
+}
+
+.sync-toggle input:checked + .sync-track::after {
+  transform: translate(20px, -50%);
+  background: #000;
+  border-color: #000;
+}
+
+.sync-toggle:hover {
+  border-color: #3b3b3b;
+}
+
+.sync-toggle:focus-within {
+  outline: 1px solid #5a5a5a;
+  outline-offset: 2px;
+}
+
+.sync-toggle input:checked ~ .sync-label {
+  color: #d6d6d6;
+}
+
+.sync-state {
+  min-width: 2.3em;
+  text-align: right;
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #5a5a5a;
+  user-select: none;
+}
+
+.sync-state::before {
+  content: 'off';
+}
+
+.sync-toggle input:checked ~ .sync-state {
+  color: #bdbdbd;
+}
+
+.sync-toggle input:checked ~ .sync-state::before {
+  content: 'on';
+}
+
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--line);
+  max-height: 36px;
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 220ms ease, transform 220ms ease, max-height 220ms ease;
+  overflow: hidden;
+}
+
+.tabs.hidden {
+  opacity: 0;
+  transform: translateY(-4px);
+  max-height: 0;
+  border-bottom-color: transparent;
+}
+
+.tab-btn {
+  border: none;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  padding: 10px 18px;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  margin-bottom: -1px;
+  transition: color 0.1s, border-color 0.1s;
+}
+
+.tab-btn:hover:not(.active) { color: #888; }
+
+.tab-btn.active {
+  color: var(--active);
+  border-bottom-color: var(--active);
+}
+
+.tab-btn.disabled {
+  opacity: 0.42;
+}
+
+.sync-input-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  color: transparent;
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0;
+  margin-bottom: 0;
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-4px);
+  overflow: hidden;
+  transition:
+    max-height 220ms ease,
+    padding 220ms ease,
+    margin-bottom 220ms ease,
+    border-color 220ms ease,
+    color 220ms ease,
+    opacity 220ms ease,
+    transform 220ms ease;
+  pointer-events: none;
+}
+
+.sync-input-chip.visible {
+  border-color: var(--line-soft);
+  color: #9e9e9e;
+  padding: 5px 8px;
+  margin-bottom: 8px;
+  max-height: 26px;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.panel {
+  border: 1px solid var(--line);
+  border-top: none;
+  padding: 22px;
+  background: var(--panel);
+}
+
+.top-row {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 14px;
+  align-items: stretch;
+  min-height: 350px;
+}
+
+.main-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  min-height: 0;
+}
+
+.input-wrap {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  flex: 1 1 auto;
+  min-height: 300px;
+}
+
+.right-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  height: 100%;
+  min-height: 0;
+}
+
+textarea {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 300px;
+  height: 100%;
+  resize: vertical;
+  background: #000;
+  border: 1px solid var(--line-soft);
+  border-radius: 0;
+  color: #f1f1f1;
+  padding: 12px 14px;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  outline: none;
+  transition: border-color 0.1s;
+}
+
+textarea:focus { border-color: #333; }
+textarea::placeholder { color: var(--muted-2); }
+
+.workflow-list {
+  display: grid;
+  gap: 12px;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transform: translateY(-6px);
+  transition: max-height 260ms ease, opacity 220ms ease, transform 220ms ease;
+}
+
+.workflow-list.visible + .workflow-card {
+  display: none;
+}
+
+.workflow-list.visible {
+  max-height: 2600px;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.workflow-item {
+  border: 1px solid var(--line-soft);
+  padding: 12px;
+}
+
+.workflow-item-title {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #a4a4a4;
+  margin-bottom: 10px;
+}
+
+.workflow-card {
+  border: 1px solid var(--line-soft);
+  padding: 14px;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.workflow {
+  margin-top: 0;
+  position: relative;
+  min-height: 250px;
+  flex: 1 1 auto;
+}
+
+.boxes {
+  position: relative;
+  margin-left: 206px;
+  display: grid;
+  grid-template-rows: repeat(4, 52px);
+  gap: 8px;
+  align-content: center;
+  min-height: 100%;
+}
+
+.box {
+  border: 1px solid var(--line-soft);
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  position: relative;
+  transition: border-color 0.14s;
+}
+
+.box::before {
+  content: '';
+  position: absolute;
+  left: -7px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--line-soft);
+  transition: background 0.14s;
+}
+
+.box-text {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9a9a9a;
+  font-weight: 500;
+  word-break: break-word;
+  opacity: 1;
+  transform: translateY(0);
+  transition: color 180ms ease, opacity 180ms ease, transform 180ms ease;
+}
+
+.workflow-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.curve-base {
+  fill: none;
+  stroke: var(--line-soft);
+  stroke-width: 1.4;
+}
+
+.curve-glow {
+  fill: none;
+  stroke: var(--active);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset 520ms ease, opacity 80ms linear;
+}
+
+.origin-dot {
+  fill: var(--line-soft);
+}
+
+.workflow.active .origin-dot {
+  fill: var(--active);
+}
+
+.branch.active .box {
+  border-color: var(--active);
+}
+
+.branch.active .box::before {
+  background: var(--active);
+}
+
+.branch.active .box-text {
+  color: var(--active);
+}
+
+.box-text.swap-out {
+  opacity: 0;
+  transform: translateY(-2px);
+}
+
+.box-text.swap-in {
+  animation: textSwapIn 220ms ease forwards;
+}
+
+@keyframes textSwapIn {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.predict-btn {
+  width: 100%;
+  border: 1px solid var(--active);
+  background: var(--active);
+  color: #000;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  padding: 9px 12px;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.predict-btn:hover:not(:disabled) {
+  background: #ccc;
+  border-color: #ccc;
+}
+
+.predict-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.predict-btn.is-loading,
+.predict-btn.is-predicting {
+  position: relative;
+  padding-right: 32px;
+}
+
+.predict-btn.is-loading::after,
+.predict-btn.is-predicting::after {
+  content: '';
+  position: absolute;
+  right: 11px;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  margin-top: -5px;
+  border: 1.5px solid #000;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: btnSpin 0.8s linear infinite;
+}
+
+.predict-btn.is-loading:disabled,
+.predict-btn.is-predicting:disabled {
+  opacity: 1;
+  cursor: progress;
+}
+
+@keyframes btnSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.flow {
+  margin-top: 24px;
+  border: 1px solid var(--line);
+  padding: 12px;
+}
+
+.meta-row {
+  margin-top: 14px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.chip {
+  border: 1px solid var(--line-soft);
+  padding: 5px 9px;
+}
+
+.chip b {
+  color: #bdbdbd;
+  font-weight: 500;
+}
+
+.error {
+  margin-top: 12px;
+  color: #944;
+  font-size: 0.72rem;
+}
+
+.error:empty {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  .header-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .top-row {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .main-col {
+    gap: 10px;
+    height: auto;
+  }
+
+  .input-wrap {
+    min-height: 260px;
+    flex: 0 0 auto;
+  }
+
+  textarea {
+    min-height: 260px;
+  }
+
+  .right-col {
+    height: auto;
+  }
+
+  .workflow-card {
+    min-height: 0;
+  }
+
+  .workflow {
+    min-height: 250px;
+  }
+
+  .boxes {
+    margin-left: 148px;
+  }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="header-row">
+    <div>
+      <div class="header-label">Router Demo</div>
+      <div class="header-title">LLM Router Workflow</div>
+    </div>
+
+    <div class="sync-wrap">
+      <label class="sync-toggle" aria-label="Sync" for="syncToggle">
+        <input type="checkbox" id="syncToggle">
+        <span class="sync-track"></span>
+        <span class="sync-label">Sync</span>
+        <span class="sync-state" aria-hidden="true"></span>
+      </label>
+    </div>
+  </div>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="panel">
+    <div class="top-row">
+      <div class="main-col">
+        <div class="input-wrap">
+          <textarea id="inputText" spellcheck="false" placeholder="Enter query to classify and route..."></textarea>
+        </div>
+
+        <button class="predict-btn" id="predictBtn">Predict</button>
+      </div>
+
+      <div class="right-col">
+        <div class="sync-input-chip" id="syncInputChip">sync input enabled</div>
+
+        <div class="workflow-list" id="workflowList"></div>
+
+        <div class="workflow-card" id="singleWorkflowCard">
+          <div class="workflow" id="workflow">
+            <svg class="workflow-svg" id="workflowSvg" viewBox="0 0 360 250" preserveAspectRatio="none" aria-hidden="true">
+              <circle class="origin-dot" id="originDot" cx="0" cy="0" r="2.7"></circle>
+
+              <path class="curve-base" id="base-low"></path>
+              <path class="curve-base" id="base-medium"></path>
+              <path class="curve-base" id="base-high"></path>
+              <path class="curve-base" id="base-xhigh"></path>
+
+              <path class="curve-glow" id="glow-low"></path>
+              <path class="curve-glow" id="glow-medium"></path>
+              <path class="curve-glow" id="glow-high"></path>
+              <path class="curve-glow" id="glow-xhigh"></path>
+            </svg>
+
+            <div class="boxes">
+              <div class="branch" data-tier="low"><div class="box"><div class="box-text">low</div></div></div>
+              <div class="branch" data-tier="medium"><div class="box"><div class="box-text">medium</div></div></div>
+              <div class="branch" data-tier="high"><div class="box"><div class="box-text">high</div></div></div>
+              <div class="branch" data-tier="xhigh"><div class="box"><div class="box-text">xhigh</div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow" id="flowPanel">
+      <div class="meta-row" id="metaRow">
+        <div class="chip">complexity: <b id="mComplexity">-</b></div>
+        <div class="chip">task: <b id="mTask">-</b></div>
+        <div class="chip">latency: <b id="mLatency">-</b></div>
+        <div class="chip">multiplier: <b id="mMultiplier">-</b></div>
+      </div>
+      <div class="error" id="errorText"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const state = {
+  routers: [],
+  selectedRouter: null,
+  routerResults: {},
+  statusPollTimer: null,
+  routerStatus: {},
+  warmupInFlight: {},
+  ctaState: 'disabled',
+  isPredicting: false,
+  syncEnabled: false,
+};
+
+const tabsEl = document.getElementById('tabs');
+const predictBtn = document.getElementById('predictBtn');
+const inputText = document.getElementById('inputText');
+const errorText = document.getElementById('errorText');
+const syncToggle = document.getElementById('syncToggle');
+const syncInputChip = document.getElementById('syncInputChip');
+const workflowListEl = document.getElementById('workflowList');
+const singleWorkflowCardEl = document.getElementById('singleWorkflowCard');
+const flowPanelEl = document.getElementById('flowPanel');
+const metaRowEl = document.getElementById('metaRow');
+
+const mComplexity = document.getElementById('mComplexity');
+const mTask = document.getElementById('mTask');
+const mLatency = document.getElementById('mLatency');
+const mMultiplier = document.getElementById('mMultiplier');
+
+const TIERS = ['low', 'medium', 'high', 'xhigh'];
+
+function refreshFlowVisibility() {
+  if (!flowPanelEl) return;
+
+  const hasError = Boolean((errorText.textContent || '').trim());
+  const hasMeta = !state.syncEnabled && [mComplexity, mTask, mLatency, mMultiplier]
+    .some((el) => {
+      const value = (el.textContent || '').trim();
+      return value && value !== '-';
+    });
+
+  flowPanelEl.style.display = hasError || hasMeta ? 'block' : 'none';
+}
+
+function setErrorMessage(message) {
+  errorText.textContent = message || '';
+  refreshFlowVisibility();
+}
+
+function activeWorkflowRoot() {
+  if (state.syncEnabled) {
+    return workflowListEl.querySelector('.workflow-item[data-router-id] .workflow') || null;
+  }
+  return document.getElementById('workflow');
+}
+
+function activeWorkflowSvg() {
+  const root = activeWorkflowRoot();
+  return root ? root.querySelector('.workflow-svg') : null;
+}
+
+function branchByTier(tier, scopeRoot = null) {
+  const root = scopeRoot || activeWorkflowRoot();
+  if (!root) return null;
+  return root.querySelector(`.branch[data-tier="${tier}"]`);
+}
+
+function implementedRouters() {
+  return state.routers.filter((router) => router.implemented);
+}
+
+function routerLabel(routerId) {
+  const router = state.routers.find((r) => r.id === routerId);
+  return router ? router.label : routerId;
+}
+
+function requestWarmup(routerId) {
+  if (!routerId || state.warmupInFlight[routerId]) return;
+
+  state.warmupInFlight[routerId] = true;
+  fetch(`/api/routers/${encodeURIComponent(routerId)}/warmup`, { method: 'POST' })
+    .catch(() => {
+      // no-op; status polling will reflect warmup errors
+    })
+    .finally(() => {
+      state.warmupInFlight[routerId] = false;
+    });
+}
+
+function setCtaState(nextState) {
+  if (state.ctaState === nextState) return;
+  state.ctaState = nextState;
+
+  predictBtn.classList.remove('is-loading', 'is-predicting');
+
+  if (nextState === 'ready') {
+    predictBtn.disabled = false;
+    predictBtn.textContent = state.syncEnabled ? 'Predict all' : 'Predict';
+    return;
+  }
+
+  if (nextState === 'loading') {
+    predictBtn.disabled = true;
+    predictBtn.textContent = state.syncEnabled ? 'Loading models' : 'Loading model';
+    predictBtn.classList.add('is-loading');
+    return;
+  }
+
+  if (nextState === 'predicting') {
+    predictBtn.disabled = true;
+    predictBtn.textContent = state.syncEnabled ? 'Predicting all' : 'Predicting';
+    predictBtn.classList.add('is-predicting');
+    return;
+  }
+
+  predictBtn.disabled = true;
+  predictBtn.textContent = state.syncEnabled ? 'Predict all' : 'Predict';
+}
+
+function pathFor(originX, originY, endX, endY) {
+  const dx = endX - originX;
+  const c1x = originX + dx * 0.22;
+  const c2x = originX + dx * 0.72;
+  return `M ${originX} ${originY} C ${c1x} ${originY}, ${c2x} ${endY}, ${endX} ${endY}`;
+}
+
+function layoutCurvesForRoot(root, svg) {
+  if (!root || !svg) return;
+
+  const svgRect = svg.getBoundingClientRect();
+  if (svgRect.width < 2 || svgRect.height < 2) return;
+
+  // Keep SVG user space aligned with rendered pixels so path endpoints
+  // match box coordinates exactly even when container height changes.
+  svg.setAttribute('viewBox', `0 0 ${svgRect.width} ${svgRect.height}`);
+
+  const mainColEl = document.querySelector('.main-col');
+  const inputRect = inputText.getBoundingClientRect();
+  const mainColRect = mainColEl ? mainColEl.getBoundingClientRect() : null;
+
+  // Origin should track the vertical center of the entire left component
+  // (textarea + predict CTA), not just the textarea itself.
+  const originYAbs = mainColRect
+    ? mainColRect.top + (mainColRect.height / 2)
+    : inputRect.top + (inputRect.height / 2);
+
+  const originX = 2;
+  const originY = Math.max(6, Math.min(svgRect.height - 6, originYAbs - svgRect.top));
+
+  const originDot = root.querySelector('.origin-dot');
+  if (originDot) {
+    originDot.setAttribute('cx', String(originX));
+    originDot.setAttribute('cy', String(originY));
+  }
+
+  TIERS.forEach((tier) => {
+    const branch = branchByTier(tier, root);
+    if (!branch) return;
+    const box = branch.querySelector('.box');
+    if (!box) return;
+
+    const boxRect = box.getBoundingClientRect();
+    const endX = Math.max(8, boxRect.left - svgRect.left - 8);
+    const endY = boxRect.top - svgRect.top + boxRect.height / 2;
+    const d = pathFor(originX, originY, endX, endY);
+
+    const base = root.querySelector(`#base-${tier}`);
+    const glow = root.querySelector(`#glow-${tier}`);
+    if (!base || !glow) return;
+
+    base.setAttribute('d', d);
+    glow.setAttribute('d', d);
+
+    const len = glow.getTotalLength();
+    glow.style.strokeDasharray = `${len}`;
+    glow.style.strokeDashoffset = `${len}`;
+  });
+}
+
+function layoutAllCurves() {
+  if (state.syncEnabled) {
+    workflowListEl.querySelectorAll('.workflow-item').forEach((item) => {
+      const root = item.querySelector('.workflow');
+      const svg = item.querySelector('.workflow-svg');
+      layoutCurvesForRoot(root, svg);
+    });
+    return;
+  }
+
+  const root = document.getElementById('workflow');
+  const svg = document.getElementById('workflowSvg');
+  layoutCurvesForRoot(root, svg);
+}
+
+function resetBranches(scopeRoot = null) {
+  const root = scopeRoot || activeWorkflowRoot();
+  if (!root) return;
+
+  root.classList.remove('active');
+  TIERS.forEach((tier) => {
+    const branch = branchByTier(tier, root);
+    const glow = root.querySelector(`#glow-${tier}`);
+    if (branch) {
+      branch.classList.remove('active');
+      const textEl = branch.querySelector('.box-text');
+      if (textEl) {
+        textEl.textContent = tier;
+        textEl.style.textTransform = '';
+        textEl.style.letterSpacing = '';
+        textEl.style.fontSize = '';
+        textEl.classList.remove('swap-out', 'swap-in');
+      }
+    }
+    if (glow) {
+      const len = glow.getTotalLength();
+      glow.style.strokeDasharray = `${len}`;
+      glow.style.strokeDashoffset = `${len}`;
+      glow.style.opacity = '0';
+    }
+  });
+}
+
+function setTab(routerId) {
+  state.selectedRouter = routerId;
+  document.querySelectorAll('.tab-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.routerId === routerId);
+  });
+
+  renderSelectedRouterState();
+
+  const router = state.routers.find((r) => r.id === routerId);
+  if (!router) return;
+
+  if (!router.implemented) {
+    setCtaState('disabled');
+    return;
+  }
+
+  setCtaState('loading');
+  void pollStatusForCurrentMode();
+}
+
+function renderTabs(routers) {
+  tabsEl.innerHTML = '';
+  routers.forEach((router) => {
+    const b = document.createElement('button');
+    b.className = `tab-btn${router.implemented ? '' : ' disabled'}`;
+    b.textContent = router.label;
+    b.dataset.routerId = router.id;
+    b.addEventListener('click', () => setTab(router.id));
+    tabsEl.appendChild(b);
+  });
+}
+
+function workflowMarkup(prefix = '') {
+  return `
+    <div class="workflow" id="workflow${prefix}">
+      <svg class="workflow-svg" viewBox="0 0 360 250" preserveAspectRatio="none" aria-hidden="true">
+        <circle class="origin-dot" id="originDot" cx="0" cy="0" r="2.7"></circle>
+
+        <path class="curve-base" id="base-low"></path>
+        <path class="curve-base" id="base-medium"></path>
+        <path class="curve-base" id="base-high"></path>
+        <path class="curve-base" id="base-xhigh"></path>
+
+        <path class="curve-glow" id="glow-low"></path>
+        <path class="curve-glow" id="glow-medium"></path>
+        <path class="curve-glow" id="glow-high"></path>
+        <path class="curve-glow" id="glow-xhigh"></path>
+      </svg>
+
+      <div class="boxes">
+        <div class="branch" data-tier="low"><div class="box"><div class="box-text">low</div></div></div>
+        <div class="branch" data-tier="medium"><div class="box"><div class="box-text">medium</div></div></div>
+        <div class="branch" data-tier="high"><div class="box"><div class="box-text">high</div></div></div>
+        <div class="branch" data-tier="xhigh"><div class="box"><div class="box-text">xhigh</div></div></div>
+      </div>
+    </div>
+  `;
+}
+
+function renderSyncList() {
+  const routers = implementedRouters();
+  workflowListEl.innerHTML = routers
+    .map((router) => `
+      <div class="workflow-item" data-router-id="${router.id}">
+        <div class="workflow-item-title">${router.label}</div>
+        ${workflowMarkup(`-${router.id}`)}
+      </div>
+    `)
+    .join('');
+}
+
+function applySyncMode(enabled) {
+  state.syncEnabled = enabled;
+  tabsEl.classList.toggle('hidden', enabled);
+  syncInputChip.classList.toggle('visible', enabled);
+  workflowListEl.classList.toggle('visible', enabled);
+  singleWorkflowCardEl.style.display = enabled ? 'none' : 'block';
+  metaRowEl.style.display = enabled ? 'none' : 'flex';
+  refreshFlowVisibility();
+
+  if (enabled) {
+    renderSyncList();
+    const firstImplemented = implementedRouters()[0];
+    if (firstImplemented) {
+      state.selectedRouter = firstImplemented.id;
+    }
+  } else {
+    workflowListEl.innerHTML = '';
+    if (state.selectedRouter) {
+      setTab(state.selectedRouter);
+    }
+  }
+
+  if (!state.isPredicting) {
+    setCtaState('loading');
+    void pollStatusForCurrentMode();
+  }
+
+  requestAnimationFrame(() => {
+    layoutAllCurves();
+    if (enabled) {
+      workflowListEl.querySelectorAll('.workflow').forEach((root) => resetBranches(root));
+    } else {
+      renderSelectedRouterState();
+    }
+  });
+}
+
+async function fetchRouters() {
+  const res = await fetch('/api/routers');
+  if (!res.ok) throw new Error('Failed to load routers');
+  const data = await res.json();
+  return data.routers || [];
+}
+
+async function fetchRouterStatus(routerId) {
+  const res = await fetch(`/api/routers/${encodeURIComponent(routerId)}/status`);
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error(e.detail || 'Failed to fetch router status');
+  }
+  return res.json();
+}
+
+async function pollRouterStatus(routerId, updateCta = true) {
+  if (state.isPredicting) return;
+
+  try {
+    const status = await fetchRouterStatus(routerId);
+    state.routerStatus[routerId] = status;
+
+    if (!status.ready && !status.loading && !status.error && status.implemented) {
+      requestWarmup(routerId);
+    }
+
+    if (status.error && !status.ready) {
+      if (updateCta) {
+        setCtaState('disabled');
+      }
+      setErrorMessage(`${routerLabel(routerId)} unavailable: ${status.error}`);
+      return;
+    }
+
+    if (updateCta) {
+      setErrorMessage('');
+      setCtaState(status.ready ? 'ready' : 'loading');
+    }
+  } catch (err) {
+    if (updateCta) {
+      setCtaState('disabled');
+      setErrorMessage(`${routerLabel(routerId)} status check failed: ${err.message || String(err)}`);
+    }
+  }
+}
+
+async function pollSyncStatuses() {
+  const routers = implementedRouters();
+  if (!routers.length) {
+    setCtaState('disabled');
+    return;
+  }
+
+  let allReady = true;
+  const errors = [];
+  for (const router of routers) {
+    try {
+      const status = await fetchRouterStatus(router.id);
+      state.routerStatus[router.id] = status;
+
+      if (!status.ready) {
+        allReady = false;
+      }
+
+      if (status.error && !status.ready) {
+        errors.push(`${router.label}: ${status.error}`);
+      }
+
+      if (!status.ready && !status.loading && !status.error && status.implemented) {
+        requestWarmup(router.id);
+      }
+    } catch (err) {
+      allReady = false;
+      errors.push(`${router.label}: ${err.message || String(err)}`);
+    }
+  }
+
+  if (errors.length) {
+    setCtaState('disabled');
+    setErrorMessage(errors[0]);
+    return;
+  }
+
+  setErrorMessage('');
+  setCtaState(allReady ? 'ready' : 'loading');
+}
+
+async function pollStatusForCurrentMode() {
+  if (state.isPredicting) return;
+
+  if (state.syncEnabled) {
+    await pollSyncStatuses();
+    return;
+  }
+
+  const router = state.routers.find((r) => r.id === state.selectedRouter);
+  if (!router || !router.implemented) {
+    setCtaState('disabled');
+    return;
+  }
+
+  await pollRouterStatus(router.id, true);
+}
+
+function restartStatusPolling() {
+  if (state.statusPollTimer) {
+    clearInterval(state.statusPollTimer);
+    state.statusPollTimer = null;
+  }
+
+  state.statusPollTimer = setInterval(() => {
+    void pollStatusForCurrentMode();
+  }, 2500);
+}
+
+function animateTierSelection(tier, model, scopeRoot = null) {
+  const root = scopeRoot || activeWorkflowRoot();
+  if (!root) return;
+
+  resetBranches(root);
+  const branch = branchByTier(tier, root);
+  const glow = root.querySelector(`#glow-${tier}`);
+  if (!branch || !glow) return;
+
+  root.classList.add('active');
+  const totalLen = glow.getTotalLength();
+  glow.style.strokeDasharray = `${totalLen}`;
+  glow.style.strokeDashoffset = `${totalLen}`;
+  glow.style.opacity = '1';
+
+  requestAnimationFrame(() => {
+    glow.style.strokeDashoffset = '0';
+  });
+
+  setTimeout(() => {
+    branch.classList.add('active');
+  }, 500);
+
+  setTimeout(() => {
+    const textEl = branch.querySelector('.box-text');
+    if (!textEl) return;
+
+    // Avoid transient case/style jump (HIGH -> high) before swap.
+    // Keep current uppercase style until model text is injected.
+    textEl.style.textTransform = 'none';
+    textEl.style.letterSpacing = '0.02em';
+    textEl.style.fontSize = '0.76rem';
+
+    textEl.classList.add('swap-out');
+    setTimeout(() => {
+      textEl.textContent = model;
+      textEl.classList.remove('swap-out');
+      textEl.classList.remove('swap-in');
+      void textEl.offsetWidth;
+      textEl.classList.add('swap-in');
+    }, 140);
+  }, 540);
+}
+
+function setMeta(data) {
+  mComplexity.textContent = data.classification.complexity || '-';
+  mTask.textContent = data.classification.task || '-';
+
+  const latency = data.classification.latency_ms;
+  mLatency.textContent = typeof latency === 'number' ? `${latency.toFixed(0)} ms` : '-';
+
+  const mul = data.decision.multiplier?.paid_plan;
+  mMultiplier.textContent = mul === null || mul === undefined ? '-' : `${mul}x`;
+  refreshFlowVisibility();
+}
+
+function resetMeta() {
+  mComplexity.textContent = '-';
+  mTask.textContent = '-';
+  mLatency.textContent = '-';
+  mMultiplier.textContent = '-';
+  refreshFlowVisibility();
+}
+
+function applyTierSelectionInstant(tier, model, scopeRoot = null) {
+  const root = scopeRoot || activeWorkflowRoot();
+  if (!root) return;
+
+  resetBranches(root);
+  const branch = branchByTier(tier, root);
+  const glow = root.querySelector(`#glow-${tier}`);
+  if (!branch || !glow) return;
+
+  root.classList.add('active');
+  branch.classList.add('active');
+
+  const len = glow.getTotalLength();
+  glow.style.strokeDasharray = `${len}`;
+  glow.style.strokeDashoffset = '0';
+  glow.style.opacity = '1';
+
+  const textEl = branch.querySelector('.box-text');
+  if (!textEl) return;
+
+  textEl.style.textTransform = 'none';
+  textEl.style.letterSpacing = '0.02em';
+  textEl.style.fontSize = '0.76rem';
+  textEl.classList.remove('swap-out', 'swap-in');
+  textEl.textContent = model;
+}
+
+function renderSelectedRouterState() {
+  if (state.syncEnabled) return;
+
+  const workflowRoot = document.getElementById('workflow');
+  resetBranches(workflowRoot);
+  resetMeta();
+
+  const cached = state.routerResults[state.selectedRouter];
+  if (!cached) return;
+
+  layoutAllCurves();
+  applyTierSelectionInstant(
+    cached.decision.tier,
+    cached.decision.selected_model,
+    workflowRoot
+  );
+  setMeta(cached);
+}
+
+async function predictOne(routerId, text, scopeRoot = null, updateMeta = true) {
+  const res = await fetch('/api/predict', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ router_id: routerId, text }),
+  });
+
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error(e.detail || 'Prediction failed');
+  }
+
+  const data = await res.json();
+  state.routerResults[routerId] = data;
+
+  if (scopeRoot) {
+    const svg = scopeRoot.querySelector('.workflow-svg');
+    layoutCurvesForRoot(scopeRoot, svg);
+    animateTierSelection(data.decision.tier, data.decision.selected_model, scopeRoot);
+  } else {
+    layoutAllCurves();
+    animateTierSelection(data.decision.tier, data.decision.selected_model);
+  }
+
+  if (updateMeta) {
+    setMeta(data);
+  }
+
+  return data;
+}
+
+async function predict() {
+  const text = inputText.value.trim();
+  if (!text) {
+    setErrorMessage('Please enter text.');
+    return;
+  }
+
+  if (!state.syncEnabled && !state.selectedRouter) {
+    setErrorMessage('No router selected.');
+    return;
+  }
+
+  setErrorMessage('');
+
+  // Reset right-side prediction state immediately on click
+  // so each run starts from a clean visual state.
+  if (state.syncEnabled) {
+    workflowListEl.querySelectorAll('.workflow').forEach((root) => resetBranches(root));
+  } else {
+    resetBranches();
+  }
+
+  state.isPredicting = true;
+  setCtaState('predicting');
+
+  try {
+    if (state.syncEnabled) {
+      const items = Array.from(workflowListEl.querySelectorAll('.workflow-item'));
+      if (!items.length) throw new Error('No implemented routers available');
+
+      const syncErrors = [];
+
+      for (let i = 0; i < items.length; i += 1) {
+        const item = items[i];
+        const routerId = item.dataset.routerId;
+        if (!routerId) continue;
+        const root = item.querySelector('.workflow');
+
+        try {
+          await predictOne(routerId, text, root, i === 0);
+        } catch (err) {
+          delete state.routerResults[routerId];
+          if (root) {
+            resetBranches(root);
+          }
+
+          const title = item.querySelector('.workflow-item-title')?.textContent?.trim() || routerId;
+          syncErrors.push(`${title}: ${err.message || String(err)}`);
+        }
+      }
+
+      if (syncErrors.length) {
+        throw new Error(syncErrors.join(' | '));
+      }
+
+      return;
+    }
+
+    await predictOne(state.selectedRouter, text, null, true);
+  } catch (err) {
+    setErrorMessage(err.message || String(err));
+    if (state.syncEnabled) {
+      workflowListEl.querySelectorAll('.workflow').forEach((root) => resetBranches(root));
+    } else {
+      delete state.routerResults[state.selectedRouter];
+      resetBranches();
+      resetMeta();
+    }
+  } finally {
+    state.isPredicting = false;
+    await pollStatusForCurrentMode();
+  }
+}
+
+predictBtn.addEventListener('click', predict);
+syncToggle.addEventListener('change', (e) => {
+  applySyncMode(Boolean(e.target.checked));
+});
+
+window.addEventListener('resize', () => {
+  layoutAllCurves();
+});
+
+async function boot() {
+  try {
+    const routers = await fetchRouters();
+    state.routers = routers;
+    renderTabs(routers);
+    const first = routers.find((r) => r.implemented) || routers[0];
+    if (first) {
+      setTab(first.id);
+    }
+
+    restartStatusPolling();
+    void pollStatusForCurrentMode();
+
+    requestAnimationFrame(() => {
+      layoutAllCurves();
+      resetBranches(document.getElementById('workflow'));
+    });
+  } catch (err) {
+    setErrorMessage(err.message || String(err));
+  }
+}
+
+boot();
+</script>
+</body>
+</html>

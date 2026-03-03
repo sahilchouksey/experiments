@@ -1,0 +1,157 @@
+{
+  "policy_name": "voice-router-complexity-policy",
+  "version": "2026-03-04",
+  "source": "user-defined",
+  "billing": {
+    "unit": "premium_requests_per_prompt",
+    "multiplier_source": "https://docs.github.com/en/copilot/concepts/billing/copilot-requests#model-multipliers",
+    "notes": [
+      "GitHub /models endpoint does not expose multiplier values directly.",
+      "For paid plans with auto model selection, GitHub applies a 10% discount to non-zero multipliers."
+    ]
+  },
+  "multipliers_by_model": {
+    "gpt-5-mini": {
+      "paid_plan": 0,
+      "copilot_free": 1,
+      "paid_plan_auto_model_selection": 0
+    },
+    "claude-haiku-4.5": {
+      "paid_plan": 0.33,
+      "copilot_free": 1,
+      "paid_plan_auto_model_selection": 0.297
+    },
+    "claude-sonnet-4.6": {
+      "paid_plan": 1,
+      "copilot_free": null,
+      "paid_plan_auto_model_selection": 0.9
+    },
+    "gpt-5.3-codex": {
+      "paid_plan": 1,
+      "copilot_free": null,
+      "paid_plan_auto_model_selection": 0.9
+    },
+    "claude-opus-4.5": {
+      "paid_plan": 3,
+      "copilot_free": null,
+      "paid_plan_auto_model_selection": 2.7
+    },
+    "claude-opus-4.6": {
+      "paid_plan": 3,
+      "copilot_free": null,
+      "paid_plan_auto_model_selection": 2.7
+    }
+  },
+  "complexity_to_tier": {
+    "trivial": "low",
+    "simple": "low",
+    "moderate": "medium",
+    "complex": "high",
+    "expert": "xhigh"
+  },
+  "tiers": {
+    "low": {
+      "models": [
+        "gpt-5-mini"
+      ],
+      "model_details": [
+        {
+          "id": "gpt-5-mini",
+          "multiplier": {
+            "paid_plan": 0,
+            "copilot_free": 1,
+            "paid_plan_auto_model_selection": 0
+          }
+        }
+      ],
+      "selection": {
+        "default": "gpt-5-mini"
+      }
+    },
+    "medium": {
+      "models": [
+        "claude-haiku-4.5"
+      ],
+      "model_details": [
+        {
+          "id": "claude-haiku-4.5",
+          "multiplier": {
+            "paid_plan": 0.33,
+            "copilot_free": 1,
+            "paid_plan_auto_model_selection": 0.297
+          }
+        }
+      ],
+      "selection": {
+        "default": "claude-haiku-4.5"
+      }
+    },
+    "high": {
+      "models": [
+        "claude-sonnet-4.6",
+        "gpt-5.3-codex"
+      ],
+      "model_details": [
+        {
+          "id": "claude-sonnet-4.6",
+          "multiplier": {
+            "paid_plan": 1,
+            "copilot_free": null,
+            "paid_plan_auto_model_selection": 0.9
+          }
+        },
+        {
+          "id": "gpt-5.3-codex",
+          "multiplier": {
+            "paid_plan": 1,
+            "copilot_free": null,
+            "paid_plan_auto_model_selection": 0.9
+          }
+        }
+      ],
+      "selection": {
+        "coding": "gpt-5.3-codex",
+        "default": "claude-sonnet-4.6"
+      }
+    },
+    "xhigh": {
+      "models": [
+        "claude-opus-4.5",
+        "claude-opus-4.6"
+      ],
+      "model_details": [
+        {
+          "id": "claude-opus-4.5",
+          "multiplier": {
+            "paid_plan": 3,
+            "copilot_free": null,
+            "paid_plan_auto_model_selection": 2.7
+          }
+        },
+        {
+          "id": "claude-opus-4.6",
+          "multiplier": {
+            "paid_plan": 3,
+            "copilot_free": null,
+            "paid_plan_auto_model_selection": 2.7
+          }
+        }
+      ],
+      "selection": {
+        "default": "claude-opus-4.5",
+        "fallback": "claude-opus-4.6"
+      }
+    }
+  },
+  "task_overrides": {
+    "coding": {
+      "high": "gpt-5.3-codex",
+      "xhigh": "gpt-5.3-codex"
+    }
+  },
+  "notes": [
+    "Model IDs are normalized to Copilot catalog IDs.",
+    "Use complexity first, then task override, then fallback order.",
+    "If selected model is unavailable, choose first available model in the same tier."
+  ]
+}
