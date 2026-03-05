@@ -13,7 +13,7 @@ body {
     color: #fff;
     padding: 40px 24px;
 }
-.container { max-width: 1200px; margin: 0 auto; }
+.container { max-width: 1680px; margin: 0 auto; }
 
 /* ── header ── */
 .header { margin-bottom: 32px; }
@@ -24,6 +24,36 @@ h1 { font-size: 1rem; font-weight: 500; letter-spacing: 0.02em; color: #fff; mar
 .controls {
     display: flex; align-items: center; gap: 8px;
     margin-bottom: 16px; flex-wrap: wrap;
+}
+
+.engine-picker {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.engine-picker-label {
+    font-size: 0.68rem;
+    color: #3a3a3a;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.engine-pick {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.74rem;
+    color: #6a6a6a;
+    letter-spacing: 0.02em;
+}
+
+.engine-pick input[type="checkbox"] {
+    width: 13px;
+    height: 13px;
+    accent-color: #fff;
 }
 button {
     padding: 6px 14px;
@@ -80,7 +110,7 @@ button:disabled { cursor: not-allowed; opacity: 0.3; }
 .engine-text.loading   { color: #666; }
 .engine-text.error     { color: #833; }
 
-/* ── two-column panels ── */
+/* ── 2x2 grid panels ── */
 .panels {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -93,6 +123,18 @@ button:disabled { cursor: not-allowed; opacity: 0.3; }
     padding: 24px;
     min-height: 420px;
     display: flex; flex-direction: column;
+}
+
+.panel.disabled {
+    opacity: 0.45;
+}
+
+.parakeet-v2-panel {
+    border-top: 1px solid #1b1b1b;
+}
+
+.parakeet-v3-panel {
+    border-top: 1px solid #1b1b1b;
 }
 .panel-header {
     display: flex; justify-content: space-between; align-items: flex-start;
@@ -134,7 +176,7 @@ button:disabled { cursor: not-allowed; opacity: 0.3; }
 kbd { font-size:0.62rem; color:#2a2a2a; border:1px solid #1e1e1e; padding:1px 4px; }
 
 /* ── responsive ── */
-@media (max-width: 640px) {
+@media (max-width: 900px) {
     .panels { grid-template-columns: 1fr; }
 }
 </style>
@@ -144,12 +186,20 @@ kbd { font-size:0.62rem; color:#2a2a2a; border:1px solid #1e1e1e; padding:1px 4p
 
 <div class="header">
     <h1>Real-time STT</h1>
-    <p class="subtitle">dual engine &middot; side-by-side</p>
+    <p class="subtitle">four engine &middot; side-by-side</p>
 </div>
 
 <div class="controls">
     <button id="startBtn" class="btn-start">Record</button>
     <button id="stopBtn" disabled>Stop</button>
+</div>
+
+<div class="engine-picker">
+    <span class="engine-picker-label">Active Engines</span>
+    <label class="engine-pick"><input type="checkbox" id="engineMoonshine" checked> Moonshine</label>
+    <label class="engine-pick"><input type="checkbox" id="engineWhisper"> Whisper</label>
+    <label class="engine-pick"><input type="checkbox" id="engineParakeetV2" checked> Parakeet v2</label>
+    <label class="engine-pick"><input type="checkbox" id="engineParakeetV3"> Parakeet v3</label>
 </div>
 
 <div class="toggles-row">
@@ -175,6 +225,16 @@ kbd { font-size:0.62rem; color:#2a2a2a; border:1px solid #1e1e1e; padding:1px 4p
         <div class="pulse-dot" id="dotWhisper"></div>
         <span class="engine-label">Whisper</span>
         <span class="engine-text" id="statusWhisper">connecting...</span>
+    </div>
+    <div class="engine-status">
+        <div class="pulse-dot" id="dotParakeet"></div>
+        <span class="engine-label">Parakeet v2</span>
+        <span class="engine-text" id="statusParakeet">connecting...</span>
+    </div>
+    <div class="engine-status">
+        <div class="pulse-dot" id="dotParakeetV3"></div>
+        <span class="engine-label">Parakeet v3</span>
+        <span class="engine-text" id="statusParakeetV3">connecting...</span>
     </div>
 </div>
 
@@ -212,10 +272,44 @@ kbd { font-size:0.62rem; color:#2a2a2a; border:1px solid #1e1e1e; padding:1px 4p
             <span class="empty-hint">Waiting for input...</span>
         </div>
     </div>
+
+    <!-- Parakeet v2 panel -->
+    <div class="panel parakeet-v2-panel" id="panelParakeetV2">
+        <div class="panel-header">
+            <div>
+                <div class="panel-title">Parakeet v2</div>
+                <div class="panel-meta">tdt-0.6b-v2 &middot; english &middot; VAD-chunked</div>
+            </div>
+            <div class="panel-actions">
+                <button class="btn-copy-panel" onclick="copyPanel('parakeet-v2')">Copy</button>
+                <button class="btn-clear-panel" onclick="clearPanel('parakeet-v2')">Clear</button>
+            </div>
+        </div>
+        <div class="transcript-text" id="transcriptParakeetV2">
+            <span class="empty-hint">Waiting for input...</span>
+        </div>
+    </div>
+
+    <!-- Parakeet v3 panel -->
+    <div class="panel parakeet-v3-panel" id="panelParakeetV3">
+        <div class="panel-header">
+            <div>
+                <div class="panel-title">Parakeet v3</div>
+                <div class="panel-meta">tdt-0.6b-v3 &middot; multilingual &middot; VAD-chunked</div>
+            </div>
+            <div class="panel-actions">
+                <button class="btn-copy-panel" onclick="copyPanel('parakeet-v3')">Copy</button>
+                <button class="btn-clear-panel" onclick="clearPanel('parakeet-v3')">Clear</button>
+            </div>
+        </div>
+        <div class="transcript-text" id="transcriptParakeetV3">
+            <span class="empty-hint">Waiting for input...</span>
+        </div>
+    </div>
 </div>
 
 <p class="footer">
-    Moonshine medium streaming + Whisper large-v3-turbo &mdash;
+    Moonshine medium streaming + Whisper large-v3-turbo + Parakeet TDT v2 + Parakeet TDT v3 &mdash;
     <kbd>R</kbd> toggle recording &nbsp;<kbd>Esc</kbd> stop
 </p>
 
@@ -241,6 +335,24 @@ const engines = {
         dotEl: null,
         statusEl: null,
     },
+    "parakeet-v2": {
+        ws: null,
+        confirmed: [],
+        partialLineId: null,
+        partialText: '',
+        transcriptEl: null,
+        dotEl: null,
+        statusEl: null,
+    },
+    "parakeet-v3": {
+        ws: null,
+        confirmed: [],
+        partialLineId: null,
+        partialText: '',
+        transcriptEl: null,
+        dotEl: null,
+        statusEl: null,
+    },
 };
 
 // ── shared audio state ────────────────────────────────────────────────────────
@@ -256,6 +368,38 @@ const filterNoiseToggle = document.getElementById('filterNoiseToggle');
 const filterNoiseLabel  = document.getElementById('filterNoiseLabel');
 const autoCopyToggle    = document.getElementById('autoCopyToggle');
 const autoCopyLabel     = document.getElementById('autoCopyLabel');
+const engineMoonshineToggle = document.getElementById('engineMoonshine');
+const engineWhisperToggle = document.getElementById('engineWhisper');
+const engineParakeetV2Toggle = document.getElementById('engineParakeetV2');
+const engineParakeetV3Toggle = document.getElementById('engineParakeetV3');
+
+const panelMap = {
+    moonshine: document.getElementById('panelMoonshine'),
+    whisper: document.getElementById('panelWhisper'),
+    'parakeet-v2': document.getElementById('panelParakeetV2'),
+    'parakeet-v3': document.getElementById('panelParakeetV3'),
+};
+
+const statusTextByEngine = {
+    moonshine: 'statusMoonshine',
+    whisper: 'statusWhisper',
+    'parakeet-v2': 'statusParakeet',
+    'parakeet-v3': 'statusParakeetV3',
+};
+
+const toggleByEngine = {
+    moonshine: engineMoonshineToggle,
+    whisper: engineWhisperToggle,
+    'parakeet-v2': engineParakeetV2Toggle,
+    'parakeet-v3': engineParakeetV3Toggle,
+};
+
+const wsPathByEngine = {
+    moonshine: '/ws/moonshine',
+    whisper: '/ws/whisper',
+    'parakeet-v2': '/ws/parakeet-v2',
+    'parakeet-v3': '/ws/parakeet-v3',
+};
 
 function initEngineRefs() {
     engines.moonshine.transcriptEl = document.getElementById('transcriptMoonshine');
@@ -264,6 +408,37 @@ function initEngineRefs() {
     engines.whisper.transcriptEl   = document.getElementById('transcriptWhisper');
     engines.whisper.dotEl          = document.getElementById('dotWhisper');
     engines.whisper.statusEl       = document.getElementById('statusWhisper');
+    engines['parakeet-v2'].transcriptEl = document.getElementById('transcriptParakeetV2');
+    engines['parakeet-v2'].dotEl        = document.getElementById('dotParakeet');
+    engines['parakeet-v2'].statusEl     = document.getElementById('statusParakeet');
+    engines['parakeet-v3'].transcriptEl = document.getElementById('transcriptParakeetV3');
+    engines['parakeet-v3'].dotEl        = document.getElementById('dotParakeetV3');
+    engines['parakeet-v3'].statusEl     = document.getElementById('statusParakeetV3');
+}
+
+function isEngineEnabled(name) {
+    const t = toggleByEngine[name];
+    return Boolean(t && t.checked);
+}
+
+function getEnabledEngines() {
+    return Object.keys(toggleByEngine).filter(isEngineEnabled);
+}
+
+function updatePanelEnabledState(name) {
+    const panel = panelMap[name];
+    if (!panel) return;
+    panel.classList.toggle('disabled', !isEngineEnabled(name));
+}
+
+function updateAllPanelEnabledStates() {
+    for (const name of Object.keys(panelMap)) updatePanelEnabledState(name);
+}
+
+function ensureAtLeastOneEngineEnabled(changedEngineName) {
+    if (getEnabledEngines().length > 0) return;
+    const t = toggleByEngine[changedEngineName];
+    if (t) t.checked = true;
 }
 
 // ── engine-specific rendering ─────────────────────────────────────────────────
@@ -362,6 +537,7 @@ function copyPanel(name) {
 // ── WebSocket management ──────────────────────────────────────────────────────
 function setEngineStatus(name, cls, text) {
     const e = engines[name];
+    if (!e || !e.statusEl || !e.dotEl) return;
     e.statusEl.className = 'engine-text ' + cls;
     e.statusEl.textContent = text;
     if (cls === 'listening') e.dotEl.classList.add('active');
@@ -369,6 +545,12 @@ function setEngineStatus(name, cls, text) {
 }
 
 function connectEngine(name, path) {
+    if (!isEngineEnabled(name)) {
+        return;
+    }
+    if (engines[name].ws && engines[name].ws.readyState <= 1) {
+        return;
+    }
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const ws = new WebSocket(protocol + '//' + location.host + path);
     ws.binaryType = 'arraybuffer';
@@ -379,24 +561,39 @@ function connectEngine(name, path) {
         ws.send(JSON.stringify({ type: 'set_auto_copy',    enabled: autoCopyToggle.checked }));
     };
     ws.onclose = () => {
-        setEngineStatus(name, '', 'disconnected');
-        if (isRecording) stopRecording();
+        setEngineStatus(name, '', isEngineEnabled(name) ? 'disconnected' : 'disabled');
     };
     ws.onerror = (e) => { console.error(name, 'ws error', e); };
     ws.onmessage = (ev) => {
         const msg = JSON.parse(ev.data);
         if (msg.type === 'ready') {
             setEngineStatus(name, '', 'ready');
+        } else if (msg.type === 'info') {
+            const text = String(msg.message || 'ready');
+            setEngineStatus(name, '', text.replace(/^.*device:\s*/i, 'device: '));
         } else if (msg.type === 'partial') {
             handlePartial(name, msg.line_id, msg.text);
         } else if (msg.type === 'transcription') {
             handleTranscription(name, msg.line_id, msg.text, msg.auto_copy, msg.filtered);
+        } else if (msg.type === 'error') {
+            const txt = String(msg.message || 'unavailable').toLowerCase();
+            const label = txt.includes('out of memory') || txt.includes('cuda') ? 'vram/cuda issue' : 'unavailable';
+            setEngineStatus(name, 'error', label);
         }
     };
 }
 
+function disconnectEngine(name) {
+    const ws = engines[name].ws;
+    if (ws) {
+        try { ws.close(); } catch (_) {}
+    }
+    engines[name].ws = null;
+    setEngineStatus(name, '', isEngineEnabled(name) ? 'disconnected' : 'disabled');
+}
+
 function sendBothEngines(data) {
-    for (const name of ['moonshine', 'whisper']) {
+    for (const name of getEnabledEngines()) {
         const ws = engines[name].ws;
         if (ws && ws.readyState === WebSocket.OPEN) ws.send(data);
     }
@@ -445,8 +642,9 @@ registerProcessor('pcm-streamer', PcmStreamer);
 
 async function startRecording() {
     startBtn.disabled = true;
-    setEngineStatus('moonshine', 'loading', 'requesting mic...');
-    setEngineStatus('whisper',   'loading', 'requesting mic...');
+    for (const name of getEnabledEngines()) {
+        setEngineStatus(name, 'loading', 'requesting mic...');
+    }
     try {
         mediaStream = await navigator.mediaDevices.getUserMedia({ audio: {
             sampleRate: { ideal: 16000 }, channelCount: 1,
@@ -462,26 +660,31 @@ async function startRecording() {
             processorOptions: { targetRate: 16000 }
         });
         workletNode.port.onmessage = (ev) => {
-            // Fan out the same audio chunk to both engines
-            const buf1 = ev.data;
-            const buf2 = buf1.slice(0);   // copy — each WS owns its own buffer
-            const moon = engines.moonshine.ws;
-            const whis = engines.whisper.ws;
-            if (moon && moon.readyState === WebSocket.OPEN) moon.send(buf1);
-            if (whis && whis.readyState === WebSocket.OPEN) whis.send(buf2);
+            // Fan out the same audio chunk only to enabled engines
+            const enabled = getEnabledEngines();
+            if (enabled.length === 0) return;
+            const base = ev.data;
+            enabled.forEach((name, idx) => {
+                const ws = engines[name].ws;
+                if (!ws || ws.readyState !== WebSocket.OPEN) return;
+                if (idx === 0) ws.send(base);
+                else ws.send(base.slice(0));
+            });
         };
         sourceNode.connect(workletNode);
         isRecording = true;
         stopBtn.disabled = false;
         startBtn.classList.add('active');
-        setEngineStatus('moonshine', 'listening', 'listening');
-        setEngineStatus('whisper',   'listening', 'listening');
+        for (const name of getEnabledEngines()) {
+            setEngineStatus(name, 'listening', 'listening');
+        }
     } catch (err) {
         console.error(err);
         startBtn.disabled = false;
         startBtn.classList.remove('active');
-        setEngineStatus('moonshine', 'error', 'mic error');
-        setEngineStatus('whisper',   'error', 'mic error');
+        for (const name of getEnabledEngines()) {
+            setEngineStatus(name, 'error', 'mic error');
+        }
     }
 }
 
@@ -496,8 +699,32 @@ function stopRecording() {
     startBtn.disabled = false;
     startBtn.classList.remove('active');
     stopBtn.disabled = true;
-    setEngineStatus('moonshine', '', 'stopped');
-    setEngineStatus('whisper',   '', 'stopped');
+    for (const name of Object.keys(engines)) {
+        if (isEngineEnabled(name)) setEngineStatus(name, '', 'stopped');
+        else setEngineStatus(name, '', 'disabled');
+    }
+}
+
+function bindEngineToggles() {
+    for (const name of Object.keys(toggleByEngine)) {
+        const t = toggleByEngine[name];
+        t.addEventListener('change', () => {
+            ensureAtLeastOneEngineEnabled(name);
+            const enabled = t.checked;
+            if (enabled) {
+                connectEngine(name, wsPathByEngine[name]);
+                if (!isRecording) setEngineStatus(name, '', 'ready');
+            } else {
+                if (isRecording) {
+                    // Stop mic first to avoid sending to closing sockets.
+                    stopRecording();
+                }
+                disconnectEngine(name);
+                setEngineStatus(name, '', 'disabled');
+            }
+            updatePanelEnabledState(name);
+        });
+    }
 }
 
 startBtn.addEventListener('click', startRecording);
@@ -513,8 +740,14 @@ document.addEventListener('keydown', (e) => {
 
 // ── boot ──────────────────────────────────────────────────────────────────────
 initEngineRefs();
-connectEngine('moonshine', '/ws/moonshine');
-connectEngine('whisper',   '/ws/whisper');
+bindEngineToggles();
+updateAllPanelEnabledStates();
+for (const name of getEnabledEngines()) {
+    connectEngine(name, wsPathByEngine[name]);
+}
+for (const name of Object.keys(engines)) {
+    if (!isEngineEnabled(name)) setEngineStatus(name, '', 'disabled');
+}
 </script>
 </body>
 </html>
