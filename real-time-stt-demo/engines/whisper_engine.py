@@ -8,7 +8,9 @@ interference. Self-registers into the engine REGISTRY.
 """
 
 import asyncio
+import contextlib
 import copy
+import gc
 import json
 import os
 import queue
@@ -61,6 +63,16 @@ def get_whisper():
                         raise
                 print("[whisper] model loaded")
     return _whisper_model
+
+
+def unload_whisper() -> None:
+    global _whisper_model
+    with _whisper_lock:
+        _whisper_model = None
+    gc.collect()
+    if torch.cuda.is_available():
+        with contextlib.suppress(Exception):
+            torch.cuda.empty_cache()
 
 
 # ── Silero VAD lazy singleton ─────────────────────────────────────────────────

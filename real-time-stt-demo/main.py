@@ -1,5 +1,5 @@
 """
-Dual-Engine STT Demo — thin orchestrator.
+Multi-Engine STT Demo — thin orchestrator.
 
 Imports each engine module for its side-effect (self-registration into
 REGISTRY), then mounts every registered engine onto the FastAPI app.
@@ -12,6 +12,8 @@ from fastapi.responses import FileResponse
 # Side-effect imports: each module calls @register(...) which populates REGISTRY
 import engines.moonshine_engine  # noqa: F401
 import engines.whisper_engine  # noqa: F401
+import engines.parakeet_v2_engine  # noqa: F401
+import engines.parakeet_v3_engine  # noqa: F401
 
 from engines.base import REGISTRY
 
