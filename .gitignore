@@ -8,3 +8,4 @@ opencode-sdk-selection-demo/local-auth/
 opencode-sdk-selection-demo/local-config/
 opencode-sdk-selection-demo/.env
 opencode-sdk-selection-demo/.env.*
+opencode-sdk-selection-demo/__pycache__/
