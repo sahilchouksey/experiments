@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenCode SDK Selection Demo</title>
+<link rel="stylesheet" href="https://esm.sh/streamdown@2.3.0/styles.css">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #000;
+  --line: #1a1a1a;
+  --line-soft: #242424;
+  --text: #fff;
+  --muted: #4a4a4a;
+  --muted-2: #2d2d2d;
+  --ok: #3a3a3a;
+  --error: #843b3b;
+  --shell-gap: 8px;
+  --prompt-panel-h: 228px;
+  --stream-panel-h: 188px;
+  --bottom-panel-h: 188px;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 10px;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  font-size: 13.5px;
+}
+
+.shell {
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  height: calc(100vh - 20px);
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto var(--prompt-panel-h) var(--stream-panel-h) var(--bottom-panel-h) auto;
+  grid-template-areas:
+    'header header'
+    'prompt prompt'
+    'thinking response'
+    'tools trace'
+    'footer footer';
+  gap: var(--shell-gap);
+}
+
+.header {
+  grid-area: header;
+  margin-bottom: 0;
+}
+
+.header-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.header-title {
+  font-size: 1.22rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.panel {
+  border: 1px solid var(--line);
+  margin-bottom: 0;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.12s ease;
+}
+
+
+
+.panel-head {
+  border-bottom: 1px solid var(--line);
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.panel-head-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.panel-title {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #bdbdbd;
+}
+
+.panel-meta {
+  font-size: 0.68rem;
+  color: var(--muted);
+}
+
+.auto-toggle {
+  min-width: 0;
+  padding: 3px 8px;
+  border: 1px solid var(--line-soft);
+  border-radius: 0;
+  background: #000;
+  color: #787878;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.auto-toggle:hover:not(:disabled) {
+  background: #121212;
+  border-color: #343434;
+  color: #c9c9c9;
+}
+
+.auto-toggle[aria-pressed="true"] {
+  color: #d0d0d0;
+  border-color: #4a4a4a;
+}
+
+.panel-body {
+  padding: 12px;
+  min-height: 0;
+  flex: 1;
+}
+
+textarea {
+  width: 100%;
+  min-height: 72px;
+  max-height: 92px;
+  resize: none;
+  background: #000;
+  border: 1px solid var(--line-soft);
+  border-radius: 0;
+  color: #e8e8e8;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  padding: 12px 14px;
+  outline: none;
+  font-family: inherit;
+  caret-color: #f2f2f2;
+}
+
+textarea:focus {
+  border-color: #3a3a3a;
+}
+
+textarea::placeholder {
+  color: #2d2d2d;
+}
+
+.composer-controls {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.ctrl-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ctrl-label {
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+select {
+  background: #000;
+  border: 1px solid var(--line-soft);
+  color: #bdbdbd;
+  font-size: 0.8rem;
+  font-family: inherit;
+  padding: 7px 10px;
+  outline: none;
+  border-radius: 0;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+select:focus {
+  border-color: #3a3a3a;
+}
+
+button {
+  padding: 8px 16px;
+  border: 1px solid #fff;
+  border-radius: 0;
+  background: #fff;
+  color: #000;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  font-family: inherit;
+  min-width: 112px;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+button:hover:not(:disabled) {
+  background: #cfcfcf;
+  border-color: #cfcfcf;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 20px;
+  margin-top: 12px;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #242424;
+  flex-shrink: 0;
+}
+
+.dot.loading,
+.dot.generating {
+  background: #fff;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.dot.done {
+  background: var(--ok);
+}
+
+.dot.error {
+  background: var(--error);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+.status-text {
+  font-size: 0.72rem;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+
+.stream {
+  border: 1px solid var(--line-soft);
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  overflow: auto;
+  scroll-behavior: smooth;
+  padding: 10px 12px;
+  background: #000;
+  white-space: normal;
+  word-break: break-word;
+  font-size: 0.9rem;
+  line-height: 1.65;
+  contain: layout paint;
+}
+
+.stream.thinking {
+  color: #8e8e8e;
+}
+
+.stream.response {
+  color: #f0f0f0;
+}
+
+.stream :where(h1, h2, h3, h4, h5, h6) {
+  font-size: 0.9rem;
+  margin: 0.5rem 0 0.35rem;
+  letter-spacing: 0.02em;
+}
+
+.stream :where(p, ul, ol, pre, blockquote) {
+  margin: 0.35rem 0;
+}
+
+.stream :where(ul, ol) {
+  padding-left: 1.1rem;
+}
+
+.stream pre {
+  border: 1px solid #202020;
+  padding: 8px;
+  overflow: auto;
+}
+
+.stream code {
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.82em;
+}
+
+.hint {
+  color: #262626;
+  font-size: 0.84rem;
+}
+
+.tools-list {
+  display: grid;
+  gap: 8px;
+  grid-auto-rows: max-content;
+  align-content: start;
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+  scroll-behavior: smooth;
+  padding-right: 2px;
+  contain: layout paint;
+}
+
+.tool-card {
+  border: 1px solid var(--line-soft);
+  transition: border-color 0.16s ease;
+}
+
+.tool-head {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line-soft);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tool-name {
+  font-size: 0.77rem;
+  letter-spacing: 0.04em;
+  color: #d8d8d8;
+}
+
+.tool-badges {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.tool-toggle {
+  border: 1px solid var(--line-soft);
+  background: #000;
+  color: #9a9a9a;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  min-width: auto;
+  width: auto;
+}
+
+.tool-toggle:hover:not(:disabled) {
+  background: #131313;
+  border-color: #343434;
+  color: #c8c8c8;
+}
+
+.tool-card.collapsed .tool-body {
+  display: none;
+}
+
+.tool-card.expanded .tool-body {
+  display: grid;
+  animation: tool-expand 160ms ease;
+}
+
+@keyframes tool-expand {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.badge {
+  border: 1px solid var(--line-soft);
+  padding: 2px 6px;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8a8a8a;
+}
+
+.badge.pending,
+.badge.running {
+  color: #d8d8d8;
+  border-color: #555;
+}
+
+.badge.completed {
+  color: #bfbfbf;
+  border-color: #3f3f3f;
+}
+
+.badge.error {
+  color: #d78585;
+  border-color: #6a3030;
+}
+
+.tool-body {
+  padding: 8px 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.tool-chunk {
+  border: 1px solid #191919;
+}
+
+.tool-chunk-title {
+  padding: 4px 6px;
+  border-bottom: 1px solid #191919;
+  font-size: 0.64rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #686868;
+}
+
+.tool-chunk pre {
+  margin: 0;
+  padding: 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #bdbdbd;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.trace {
+  border: 1px solid var(--line-soft);
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  overflow: auto;
+  scroll-behavior: smooth;
+  padding: 8px 10px;
+  display: grid;
+  gap: 4px;
+  contain: layout paint;
+}
+
+.trace-item {
+  font-size: 0.7rem;
+  color: #6f6f6f;
+  letter-spacing: 0.02em;
+}
+
+.footer {
+  grid-area: footer;
+  margin-top: 0;
+  font-size: 0.67rem;
+  color: #2a2a2a;
+  letter-spacing: 0.02em;
+}
+
+#promptPanel {
+  grid-area: prompt;
+}
+
+#thinkingPanel {
+  grid-area: thinking;
+  contain: layout paint;
+}
+
+#responsePanel {
+  grid-area: response;
+  contain: layout paint;
+}
+
+#toolsPanel {
+  grid-area: tools;
+  contain: layout paint;
+}
+
+#tracePanel {
+  grid-area: trace;
+  contain: layout paint;
+}
+
+#promptPanel .panel-body {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.floating-status {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line-soft);
+  background: #030303;
+  padding: 7px 10px;
+  z-index: 30;
+}
+
+.footer kbd {
+  border: 1px solid #1e1e1e;
+  padding: 1px 5px;
+  border-radius: 0;
+  color: #333;
+  font-size: 0.62rem;
+}
+
+@media (max-width: 760px) {
+  body {
+    padding: 16px;
+    overflow: auto;
+    font-size: 14px;
+  }
+
+  .shell {
+    display: block;
+    height: auto;
+  }
+
+  .panel {
+    margin-bottom: 12px;
+  }
+
+  textarea {
+    min-height: 120px;
+    max-height: none;
+    resize: vertical;
+  }
+
+  .stream,
+  .tools-list,
+  .trace {
+    min-height: 120px;
+    max-height: 220px;
+    height: auto;
+  }
+
+  .composer-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .panel-head-right {
+    gap: 6px;
+  }
+
+  .auto-toggle {
+    padding: 2px 6px;
+  }
+
+  button {
+    width: 100%;
+  }
+}
+
+@media (max-height: 860px) and (min-width: 761px) {
+  :root {
+    --prompt-panel-h: 206px;
+    --stream-panel-h: 170px;
+    --bottom-panel-h: 170px;
+  }
+
+  .header-label {
+    margin-bottom: 4px;
+  }
+
+  .panel-head {
+    padding: 8px 10px;
+  }
+
+  .panel-body {
+    padding: 9px;
+  }
+
+  textarea {
+    min-height: 64px;
+    max-height: 84px;
+  }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="header">
+    <p class="header-label">OpenCode SDK</p>
+    <h1 class="header-title">SDK Model Selection Demo</h1>
+  </div>
+
+  <section class="panel" id="promptPanel">
+    <div class="panel-head">
+      <div class="panel-title">Prompt</div>
+      <div class="panel-meta" id="providerMeta">provider: github-copilot</div>
+    </div>
+    <div class="panel-body">
+      <textarea id="promptInput" placeholder="Ask anything. Tool calls, thinking, and response stream will appear below." spellcheck="false"></textarea>
+
+      <div class="composer-controls">
+        <div class="ctrl-block">
+          <label class="ctrl-label" for="sessionSelect">Session</label>
+          <select id="sessionSelect"></select>
+        </div>
+        <div class="ctrl-block">
+          <label class="ctrl-label" for="modelSelect">Model</label>
+          <select id="modelSelect"></select>
+        </div>
+        <button id="submitBtn" type="button">Submit</button>
+      </div>
+
+    </div>
+  </section>
+
+  <section class="panel" id="thinkingPanel">
+    <div class="panel-head">
+      <div class="panel-title">Thinking Stream</div>
+      <div class="panel-head-right">
+        <div class="panel-meta" id="thinkingMeta">live</div>
+        <button type="button" class="auto-toggle" id="thinkingAutoToggle" aria-pressed="false">Auto: Off</button>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div class="stream thinking" id="thinkingStream"><span class="hint">Thinking output will stream here.</span></div>
+    </div>
+  </section>
+
+  <section class="panel" id="responsePanel">
+    <div class="panel-head">
+      <div class="panel-title">Response Stream</div>
+      <div class="panel-head-right">
+        <div class="panel-meta" id="responseMeta">live</div>
+        <button type="button" class="auto-toggle" id="responseAutoToggle" aria-pressed="false">Auto: Off</button>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div class="stream response" id="responseStream"><span class="hint">Assistant response will stream here.</span></div>
+    </div>
+  </section>
+
+  <section class="panel" id="toolsPanel">
+    <div class="panel-head">
+      <div class="panel-title">Tool Calls (Including MCP)</div>
+      <div class="panel-head-right">
+        <div class="panel-meta" id="toolMeta">0 calls</div>
+        <button type="button" class="auto-toggle" id="toolsAutoToggle" aria-pressed="true">Auto: On</button>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div class="tools-list" id="toolsList">
+        <div class="hint">Tool executions will appear here with status, input, metadata, and output.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="tracePanel">
+    <div class="panel-head">
+      <div class="panel-title">Event Trace</div>
+      <div class="panel-head-right">
+        <div class="panel-meta">stream</div>
+        <button type="button" class="auto-toggle" id="traceAutoToggle" aria-pressed="true">Auto: On</button>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div class="trace" id="traceList"></div>
+    </div>
+  </section>
+
+  <p class="footer">
+    <kbd>Ctrl</kbd> + <kbd>Enter</kbd> submit &nbsp;&middot;&nbsp; button stays disabled until full response completes
+  </p>
+</div>
+
+<div class="floating-status" aria-live="polite" aria-atomic="true">
+  <div class="dot" id="statusDot"></div>
+  <div class="status-text" id="statusText">Ready</div>
+</div>
+
+<script type="module" src="/static/js/app.js"></script>
+</body>
+</html>

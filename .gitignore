@@ -1,2 +1,10 @@
 AGENTS.md
 temp/
+
+# local auth/config snapshots for sdk demo (never commit)
+opencode-sdk-selection-demo/auth.json
+opencode-sdk-selection-demo/opencode.json
+opencode-sdk-selection-demo/local-auth/
+opencode-sdk-selection-demo/local-config/
+opencode-sdk-selection-demo/.env
+opencode-sdk-selection-demo/.env.*
